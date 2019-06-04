@@ -1,4 +1,4 @@
-name:                Comodel
+name:                haskell-coop
 version:             0.1.0.0
 cabal-version:       >=1.10
 synopsis:            A library for comodel-oriented programming in Haskell
@@ -10,7 +10,7 @@ copyright:           (c) 2019 Danel Ahman
 category:            Control
 build-type:          Simple
 extra-source-files:  CHANGELOG.md
-homepage:            https://github.com/danelahman/comodels
+homepage:            https://github.com/danelahman/haskell-coop
 
 library
   exposed-modules:     Control.Monad.Comodel,
