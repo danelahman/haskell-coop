@@ -1,0 +1,40 @@
+name:                Comodel
+version:             0.1.0.0
+cabal-version:       >=1.10
+synopsis:            A library for comodel-oriented programming in Haskell
+license:             MIT
+license-file:        LICENSE.md
+author:              Danel Ahman
+maintainer:          danel.ahman@eesti.ee
+copyright:           (c) 2019 Danel Ahman
+category:            Control
+build-type:          Simple
+extra-source-files:  CHANGELOG.md
+homepage:            https://github.com/danelahman/comodels
+
+library
+  exposed-modules:     Control.Monad.Comodel,
+                       Control.Monad.SigComodel,
+                       Control.Monad.Comodel.MLFPStateFwd,
+                       Control.Monad.Comodel.FileIO,
+                       Control.Monad.Comodel.FileIOAndMLState,
+                       Control.Monad.Comodel.OldFileIO,
+                       Control.Monad.Comodel.FPState,
+                       Control.Monad.Comodel.MLState,
+                       Control.Monad.Comodel.MLFPState,
+                       Control.Monad.Comodel.IntState
+  other-extensions:    DataKinds,
+                       GADTs,
+                       GeneralizedNewtypeDeriving,
+                       RankNTypes,
+                       TypeFamilies,
+                       TypeOperators,
+                       PolyKinds,
+                       FlexibleContexts,
+                       KindSignatures
+  build-depends:       base >=4.12 && <4.13,
+                       freer-simple >=1.2 && <1.3,
+                       mtl >=2.2 && <2.3,
+                       bytestring >=0.10 && <0.11
+  hs-source-dirs:      src
+  default-language:    Haskell2010
