@@ -1,1 +1,1 @@
-# A library for programming with comodels in Haskell
+# A library for comodel-oriented programming in Haskell
