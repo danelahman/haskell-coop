@@ -194,7 +194,7 @@ type family IfaceUnion (iface :: [* -> *]) (iface' :: [* -> *]) :: [* -> *] wher
   IfaceUnion (e ': iface) iface' = e ': (IfaceUnion iface iface')
 
 unionRunners :: Runner iface iface'' c -> Runner iface' iface'' c
-              -> Runner (IfaceUnion iface iface') iface'' c
+             -> Runner (IfaceUnion iface iface') iface'' c
 unionRunners Empty r' = r'
 unionRunners (CoOps coops r) r' =
   CoOps coops (unionRunners r r')
