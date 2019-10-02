@@ -6,8 +6,12 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Control.Monad.Runner.Ambients
-  (
+module Control.Monad.Runner.Ambients (
+  Nat,
+  AmbFun, AmbVal, Amb, 
+  rebindVal, rebindFun,
+  withAmbVal, withAmbFun,
+  ambTopLevel
   ) where
 
 import Control.Monad.Runner
@@ -33,6 +37,7 @@ instance Eq Nat where
 data AmbFun a b where
   F :: (Typeable a,Typeable b) => Nat -> (a -> b) -> AmbFun a b
 
+type AmbVal a = (Typeable a) => AmbFun () a
 
 mkAmb :: (Typeable a,Typeable b) => Nat -> (a -> b) -> AmbFun a b
 mkAmb addr x = F addr x
@@ -92,11 +97,17 @@ data Amb :: * -> * where
 bind :: (Typeable a,Typeable b,Member Amb iface) => (a -> b) -> User iface (AmbFun a b)
 bind f = focus (performU (Bind f))
 
+get :: (Typeable a,Member Amb iface) => AmbVal a -> User iface a
+get x = focus (performU (Apply x ()))
+
 apply :: (Typeable a,Typeable b,Member Amb iface) => AmbFun a b -> a -> User iface b
 apply f x = focus (performU (Apply f x))
 
-rebind :: (Typeable a,Typeable b,Member Amb iface) => AmbFun a b -> (a -> b) -> User iface ()
-rebind f g = focus (performU (Rebind f g))
+rebindVal :: (Typeable a,Member Amb iface) => AmbVal a -> a -> User iface ()
+rebindVal x y = focus (performU (Rebind x (\ _ -> y)))
+
+rebindFun :: (Typeable a,Typeable b,Member Amb iface) => AmbFun a b -> (a -> b) -> User iface ()
+rebindFun f g = focus (performU (Rebind f g))
 
 --
 --
@@ -121,10 +132,36 @@ ambRunner = mkRunner ambCoOps
 --
 --
 --
+withAmbVal :: (Typeable a,Member Amb iface)
+           => a
+           -> (AmbVal a -> User iface b) -> User iface b
+withAmbVal x k =
+  do f <- bind (\ _ -> x);
+     k f
+
 withAmbFun :: (Typeable a,Typeable b,Member Amb iface)
            => (a -> b)
            -> (AmbFun a b -> User iface c) -> User iface c
 withAmbFun f k =
   do f <- bind f;
      k f
-    
+
+
+--
+--
+--
+ambInitialiser :: User iface AmbHeap
+ambInitialiser = return (H { memory = \ _ -> Nothing , next_addr = Z })
+
+ambFinaliser :: a -> AmbHeap -> User iface a
+ambFinaliser x _ = return x
+
+ambTopLevel :: User '[Amb] a -> a
+ambTopLevel m =
+  pureTopLevel (
+    run
+      ambRunner
+      ambInitialiser
+      m
+      ambFinaliser
+  )
