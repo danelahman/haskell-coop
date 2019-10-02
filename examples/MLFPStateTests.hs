@@ -7,12 +7,12 @@
 
 module MLFPStateTests where
 
-import Control.Monad.Comodel
-import Control.Monad.Comodel.FPState
-import Control.Monad.Comodel.MLState
-import Control.Monad.Comodel.MLFPState
+import Control.Monad.Runner
+import Control.Monad.Runner.FPState
+import Control.Monad.Runner.MLState
+import Control.Monad.Runner.MLFPState
 
-test1 :: Comp '[MLState] (String,String,String,Bool)
+test1 :: User '[MLState] (String,String,String,Bool)
 test1 =
   do r <- alloc "foobar";
      r' <- alloc "foo";
@@ -30,4 +30,4 @@ test1 =
      x <- (!) r''';
      return (s,s',s'',x)
 
-test2 = topLevel test1
+test2 = mlTopLevel test1 -- expected result ("foobar","bar","foo",True)

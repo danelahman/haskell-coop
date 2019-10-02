@@ -44,4 +44,4 @@ withFootprint fp m =
     fpRunner
     (fpInitialiser fp)
     m
-    (error ".")
+    (fpFinaliser fp)

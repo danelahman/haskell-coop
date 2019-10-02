@@ -2,7 +2,7 @@
 {-# LANGUAGE GADTs #-}
 
 --
--- Example tests for the footprint-based state comodels in FPState.
+-- Example tests for the footprint-based state runner in FPState.
 --
 
 module FPStateTests where
