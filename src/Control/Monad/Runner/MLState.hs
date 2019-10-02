@@ -6,13 +6,14 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Control.Monad.Comodel.MLState
+module Control.Monad.Runner.MLState
   (
-  Ref, MLState, mlComodel, mlLens,
-  alloc, (!), (=:=), topLevel
+  Ref, MLState, mlRunner, mlTopLevel,
+  alloc, (!), (=:=),
+  Typeable
   ) where
 
-import Control.Monad.Comodel
+import Control.Monad.Runner
 
 import Data.Typeable
 import System.IO
@@ -30,7 +31,12 @@ instance Eq Nat where
   _ == _ = False
 
 --
--- Type of references.
+-- Typed references.
+--
+-- We restrict ourselves to references storing
+-- `Typeable` values so as to be able to use
+-- explicit type casting in `mem_upd` to decide
+-- the equality of two typed references.
 --
 data Ref a where
   R :: (Typeable a) => Nat -> a -> Ref a
@@ -86,46 +92,44 @@ data MLState :: * -> * where
 --
 -- Human-readable syntactic sugar.
 --
-alloc :: (Typeable a,Member MLState iface) => a -> Comp iface (Ref a)
-alloc init = focus (perform (Alloc init))
+alloc :: (Typeable a,Member MLState iface) => a -> User iface (Ref a)
+alloc init = focus (performU (Alloc init))
 
-(!) :: (Typeable a,Member MLState iface) => Ref a -> Comp iface a
-(!) r = focus (perform (Deref r))
+(!) :: (Typeable a,Member MLState iface) => Ref a -> User iface a
+(!) r = focus (performU (Deref r))
 
-(=:=) :: (Typeable a,Member MLState iface) => Ref a -> a -> Comp iface ()
-(=:=) r x = focus (perform (Assign r x))
-
---
--- (Top-level) ML-style memory comodel.
---
-mlCoOps :: MLState r -> Heap -> Comp iface (r,Heap)
-mlCoOps (Alloc init) h = return (heap_alloc h init)
-mlCoOps (Deref r) h    = return (heap_sel h r , h)
-mlCoOps (Assign r x) h = return (() , heap_upd h r x)
-
-mlComodel :: Comodel iface '[MLState] Heap
-mlComodel = mkComodel mlCoOps
+(=:=) :: (Typeable a,Member MLState iface) => Ref a -> a -> User iface ()
+(=:=) r x = focus (performU (Assign r x))
 
 --
--- PURE <-> MLState lens.
+-- ML-style memory runner.
 --
-mlInitially :: Comp iface Heap
-mlInitially = return (H { memory = \ _ -> Nothing , next_addr = Z })
+mlCoOps :: MLState r -> Kernel iface Heap r
+mlCoOps (Alloc init) =
+  do h <- getEnv;
+     (r,h') <- return (heap_alloc h init);
+     setEnv h';
+     return r
+mlCoOps (Deref r)    =
+  do h <- getEnv;
+     return (heap_sel h r)
+mlCoOps (Assign r x) =
+  do h <- getEnv;
+     setEnv (heap_upd h r x);
+     return ()
 
-mlFinally :: Heap -> a -> Comp iface a
-mlFinally _ x = return x
-
-mlLens :: IFLens iface Heap a a
-mlLens = mkIFLens mlInitially mlFinally
+mlRunner :: Runner '[MLState] iface Heap
+mlRunner = mkRunner mlCoOps
 
 --
 -- Top-Level running of the ML-style memory.
 --
-topLevel :: Comp '[MLState] a -> a
-topLevel c =
-  runPure (
+mlTopLevel :: User '[MLState] a -> a
+mlTopLevel m =
+  pureTopLevel (
     run
-      mlComodel
-      mlLens
-      c
+      mlRunner
+      (return (H { memory = \ _ -> Nothing , next_addr = Z }))
+      m
+      (\ x _ -> return x)
   )

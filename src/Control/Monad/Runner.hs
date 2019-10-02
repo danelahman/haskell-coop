@@ -13,7 +13,8 @@ module Control.Monad.Runner (
   Runner, mkRunner, emptyRunner, unionRunners, pairRunners,
   run, execU, execK,
   topLevel, pureTopLevel, ioTopLevel,
-  embedU, embedK, embedRunner, extendRunner, focus
+  embedU, embedK, embedRunner, extendRunner, focus,
+  Member
   ) where
 
 --
