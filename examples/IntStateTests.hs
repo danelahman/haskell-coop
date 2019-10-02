@@ -1,18 +1,18 @@
 {-# LANGUAGE DataKinds #-}
 
 --
--- Example tests for the integer-state comodels in IntState.
+-- Example tests for the integer-state runners in IntState.
 --
 
 module IntStateTests where
 
-import Control.Monad.Comodel
-import Control.Monad.Comodel.IntState
+import Control.Monad.Runner
+import Control.Monad.Runner.IntState
 
 one = AZ
 two = AS AZ
 
-test1 :: Comp '[State Z] Int
+test1 :: User '[State Z] Int
 test1 =
   withNewRef 42 (
     do i <- get one;
@@ -21,7 +21,7 @@ test1 =
 
 test2 = runSt test1
 
-test3 :: Comp '[State Z] Int
+test3 :: User '[State Z] Int
 test3 =
   withNewRef 4 (
     do _ <- withNewRef 2 (
@@ -30,7 +30,7 @@ test3 =
                  _ <- put two (i + j)  -- writing to the outer reference
                  return ());
        k <- get one;
-       return (k + k)
+       return (k + k + 1)
   )
 
 test4 = runSt test3
