@@ -3,13 +3,13 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Control.Monad.Comodel.MLFPStateFwd (
-  Nat, MemShape(..), Footprint(..), Addr(..),
-  State, get, put, fpComodel, fpLens, withFootprint
+module Control.Monad.Runner.MLFPStateFwd (
+--  Nat, MemShape(..), Footprint(..), Addr(..),
+--  State, get, put, fpComodel, fpLens, withFootprint
   ) where
 
-import Control.Monad.Comodel
-import Control.Monad.Comodel.MLState
+import Control.Monad.Runner
+import Control.Monad.Runner.MLState
 
 import Data.Typeable
 import System.IO
@@ -57,52 +57,39 @@ data State (memshape :: MemShape memsize) :: * -> * where
   Put :: (Typeable a) => Addr a memshape -> a -> State memshape ()
 
 --
--- Human-readable syntax for State n operations.
+-- Generic effects.
 --
-get :: (Typeable a) => Addr a memshape -> Comp '[State memshape] a
-get addr = perform (Get addr)
+get :: (Typeable a) => Addr a memshape -> User '[State memshape] a
+get addr = performU (Get addr)
 
-put :: (Typeable a) => Addr a memshape -> a -> Comp '[State memshape] ()
-put addr x = perform (Put addr x)
-
---
--- State comodel for memshape-shaped footprint that just
--- forwards get-put operations to the external MLState world.
---
-fpCoOps :: State memshape r -> Footprint memshape -> Comp '[MLState] (r,Footprint memshape)
-fpCoOps (Get addr) mem = let r = lkpRef mem addr in
-                         do x <- (!) r;
-                            return (x,mem)
-
-fpCoOps (Put addr x) mem = let r = lkpRef mem addr in
-                           do _ <- r =:= x;
-                              return ((),mem)
-
-fpComodel :: Comodel '[MLState] '[State memshape] (Footprint memshape)
-fpComodel = mkComodel fpCoOps
+put :: (Typeable a) => Addr a memshape -> a -> User '[State memshape] ()
+put addr x = performU (Put addr x)
 
 --
--- Lens for storing the given footprint of the memory.
+-- State runner for memshape-shaped footprint that just
+-- forwards get-put operations to the external MLState runner.
 --
-fpInitially :: Footprint memshape -> Comp '[MLState] (Footprint memshape)
-fpInitially FE = return FE
-fpInitially (FC r fp) =
-  do mem <- fpInitially fp;
-     return (FC r mem)
+fpCoOps :: State memshape r -> Kernel '[MLState] (Footprint memshape) r
+fpCoOps (Get addr) =
+  do mem <- getEnv;
+     r <- return (lkpRef mem addr);
+     execK ((!) r) (\ x -> return x)
+fpCoOps (Put addr x) =
+  do mem <- getEnv;
+     r <- return (lkpRef mem addr);
+     execK (r =:= x) (\ x -> return x)
 
-fpFinally :: Footprint memshape -> a -> Comp '[MLState] a
-fpFinally _ x = return x
-
-fpLens :: Footprint memshape -> IFLens '[MLState] (Footprint memshape) a a
-fpLens fp = mkIFLens (fpInitially fp) fpFinally
+fpRunner :: Runner '[State memshape] '[MLState] (Footprint memshape)
+fpRunner = mkRunner fpCoOps
 
 --
 -- With-footprint construct for running a program only
--- on the footprint of the whole ML-style memory.
+-- on the given footprint of the whole ML-style memory.
 --
-withFootprint :: Footprint memshape -> Comp '[State memshape] a -> Comp '[MLState] a
-withFootprint fp c =
+withFootprint :: Footprint memshape -> User '[State memshape] a -> User '[MLState] a
+withFootprint fp m =
   run
-    fpComodel
-    (fpLens fp)
-    c
+    fpRunner
+    (return fp)
+    m
+    (\ x _ -> return x)
