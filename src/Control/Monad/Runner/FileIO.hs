@@ -3,15 +3,16 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 
-module Control.Monad.Comodel.FileIO (
-  FileIO, openF, closeF, readF, writeF,
+module Control.Monad.Runner.FileIO (
+  FileIO, fOpenOS, fCloseOS, fReadOS, fWriteOS,
   File, fRead, fWrite,
-  fioComodel, fhComodel, fcComodel,
-  ioFioLens, fioFhLens, fhFcLens,
+  fioRunner, fhRunner, fcRunner,
+  ioFioInitialiser, fioFhInitialiser, fhFcInitialiser,
+  ioFioFinaliser, fioFhFinaliser, fhFcFinaliser,
   withFile
   ) where
 
-import Control.Monad.Comodel
+import Control.Monad.Runner
 import System.IO hiding (withFile)
 
 import qualified Data.ByteString.Char8 as B
@@ -26,167 +27,167 @@ data FileIO :: * -> * where
   WriteFile :: Handle -> String -> FileIO ()
 
 --
--- Human-readable syntax for FileIO operations.
+-- Generic effects.
 --
-openF :: (Member FileIO iface) => FilePath -> IOMode -> Comp iface Handle
-openF fn mode = focus (perform (OpenFile fn mode))
+fOpenOS :: (Member FileIO iface) => FilePath -> IOMode -> User iface Handle
+fOpenOS fn mode = focus (performU (OpenFile fn mode))
 
-closeF :: (Member FileIO iface) => Handle -> Comp iface ()
-closeF fh = focus (perform (CloseFile fh))
+fCloseOS :: (Member FileIO iface) => Handle -> User iface ()
+fCloseOS fh = focus (performU (CloseFile fh))
 
-readF :: (Member FileIO iface) => Handle -> Comp iface String
-readF fh = focus (perform (ReadFile fh))
+fReadOS :: (Member FileIO iface) => Handle -> User iface String
+fReadOS fh = focus (performU (ReadFile fh))
 
-writeF :: (Member FileIO iface) => Handle -> String -> Comp iface ()
-writeF fh s = focus (perform (WriteFile fh s))
+fWriteOS :: (Member FileIO iface) => Handle -> String -> User iface ()
+fWriteOS fh s = focus (performU (WriteFile fh s))
 
 --
 -- Signature for reading from and writing to files.
 --
--- In the comodels below, Read denotes reading the
--- initial value of a file when using a comodel.
+-- In the runners below, Read denotes reading the
+-- initial value of a file when using a runner.
 --
 data File r where
   Read :: File String
   Write :: String -> File ()
 
 --
--- Human-readable syntax for File operations.
+-- Generic effects.
 --
-fRead :: (Member File iface) => Comp iface String
-fRead = focus (perform Read)
+fRead :: (Member File iface) => User iface String
+fRead = focus (performU Read)
 
-fWrite :: (Member File iface) => String -> Comp iface ()
-fWrite s = focus (perform (Write s))
+fWrite :: (Member File iface) => String -> User iface ()
+fWrite s = focus (performU (Write s))
 
 --
--- FIO: File-fragment of the top-level IO-comodel.
+-- FIO: File-fragment of the top-level IO-container.
 --
 -- The state of FIO is trivial because we cannot
 -- internally access nor represent the real world.
 --
 type FIOState = ()
 
-fioCoOps :: Member IO iface => FileIO r -> FIOState -> Comp iface (r,FIOState)
-fioCoOps (OpenFile fn mode) _ =
-  do fh <- focus (perform (openFile fn mode));
-     return (fh,())
-fioCoOps (CloseFile fh) _ =
-  do _ <- focus (perform (hClose fh));
-     return ((),())
-fioCoOps (ReadFile fh) _ =
+fioCoOps :: Member IO iface => FileIO a -> Kernel iface FIOState a
+fioCoOps (OpenFile fn mode) =
+  execK (focus (performU (openFile fn mode))) return
+fioCoOps (CloseFile fh) =
+  execK (focus (performU (hClose fh))) return
+fioCoOps (ReadFile fh) =
   -- using ByteString IO to ensure strictness of IO
-  do s <- focus (perform (B.hGetContents fh));
-     return (B.unpack s,())
-fioCoOps (WriteFile fh s) _ =
-  do _ <- focus (perform (B.hPutStr fh (B.pack s)));
-     return ((),())
+  execK (focus (performU (B.hGetContents fh))) (\ s -> return (B.unpack s))
+fioCoOps (WriteFile fh s) =
+  execK (focus (performU (B.hPutStr fh (B.pack s)))) return
 
-fioComodel :: Member IO iface =>  Comodel iface '[FileIO] FIOState
-fioComodel = mkComodel fioCoOps
+fioRunner :: Member IO iface =>  Runner '[FileIO] iface FIOState
+fioRunner = mkRunner fioCoOps
 
 --
--- FH: File-comodel that operates on a single file handle.
+-- FH: File-runner that operates on a single file handle.
 --
 -- The state of FH is the initial contents of the file and
 -- then a file handle supporting (over)writing to the file.
 --
 type FHState = (String , Handle)
 
-fhCoOps :: Member FileIO iface => File r -> FHState -> Comp iface (r,FHState)
-fhCoOps Read (s,fh) = return (s,(s,fh))
-fhCoOps (Write s') (s,fh) =
-  do _ <- focus (perform (WriteFile fh s')); return ((),(s,fh))
+fhCoOps :: Member FileIO iface => File a -> Kernel iface FHState a
+fhCoOps Read =
+  do (s,fh) <- getEnv;
+     return s
+fhCoOps (Write s') =
+  do (s,fh) <- getEnv;
+     execK (focus (performU (WriteFile fh s'))) return
 
-fhComodel :: Member FileIO iface => Comodel iface '[File] FHState
-fhComodel = mkComodel fhCoOps
+fhRunner :: Member FileIO iface => Runner '[File] iface FHState
+fhRunner = mkRunner fhCoOps
 
 --
--- FC: File-comodel that operates on the contents of a single file.
+-- FC: File-runner that operates on the contents of a single file.
 --
 -- The state of FC is the initial contents of the file and
 -- then the contents to be written to the file in finally.
 --
 type FCState = (String , String)
 
-fcCoOps :: File r -> FCState -> Comp iface (r,FCState)
-fcCoOps Read (s,s') = return (s,(s,s'))
-fcCoOps (Write s'') (s,s') = return ((),(s,s' ++ s''))
+fcCoOps :: File a -> Kernel iface FCState a
+fcCoOps Read =
+  do (s,s') <- getEnv;
+     return s
+fcCoOps (Write s'') =
+  do (s,s') <- getEnv;
+     setEnv (s,s' ++ s'')
 
-fcComodel :: Comodel iface '[File] FCState
-fcComodel = mkComodel fcCoOps
-
---
--- IO <-> FIO lens.
---
--- Initially & finall: Have trivial effect on the comodel.
---
-ioFioInitially :: Member IO iface => Comp iface FIOState
-ioFioInitially = return ()
-
-ioFioFinally :: Member IO iface => FIOState -> a -> Comp iface a
-ioFioFinally _ x = return x
-
-ioFioLens :: Member IO iface => IFLens iface FIOState a a
-ioFioLens = mkIFLens ioFioInitially ioFioFinally
+fcRunner :: Runner '[File] iface FCState
+fcRunner = mkRunner fcCoOps
 
 --
--- FIO <-> FH lens.
+-- IO <-> FIO.
 --
--- Initially: The contents of the file is read, and 
+ioFioInitialiser :: Member IO iface => User iface FIOState
+ioFioInitialiser = return ()
+
+ioFioFinaliser :: Member IO iface => a -> FIOState -> User iface a
+ioFioFinaliser x _ = return x
+
+--
+-- FIO <-> FH.
+--
+-- Initialiser: The contents of the file is read, and 
 -- a file handle for writing to the file is opened.
 --
--- Finally: The file handle is closed.
+-- Finaliser: The file handle is closed.
 --
-fioFhInitially :: Member FileIO iface => FilePath -> Comp iface FHState
-fioFhInitially fn =
-  do fh <- focus (perform (OpenFile fn ReadWriteMode));
-     s <- focus (perform (ReadFile fh));
-     focus (perform (CloseFile fh));
-     fh <- focus (perform (OpenFile fn WriteMode));
+fioFhInitialiser :: Member FileIO iface => FilePath -> User iface FHState
+fioFhInitialiser fn =
+  do fh <- fOpenOS fn ReadWriteMode;
+     s <- fReadOS fh;
+     fCloseOS fh;
+     fh <- fOpenOS fn WriteMode;
      return (s,fh)
 
-fioFhFinally :: Member FileIO iface => FHState -> a -> Comp iface a
-fioFhFinally (_,fh) x =
-  do _ <- focus (perform (CloseFile fh)); return x
-
-fioFhLens :: Member FileIO iface => FilePath -> IFLens iface FHState a a
-fioFhLens fn = mkIFLens (fioFhInitially fn) fioFhFinally
-
+fioFhFinaliser :: Member FileIO iface => a -> FHState -> User iface a
+fioFhFinaliser x (_,fh) =
+  do _ <- fCloseOS fh;
+     return x
+  
 --
--- FH <-> FC lens.
+-- FH <-> FC.
 --
--- Initially: The contents of the file is read, and 
+-- Initialiser: The contents of the file is read, and 
 -- the new contents to be written is initialised to "".
 --
--- Finally: The new contents is written to the file.
+-- Finaliser: The new contents is written to the file.
 --
-fhFcInitially :: Member File iface => Comp iface FCState
-fhFcInitially = do s <- focus (perform Read); return (s,"")
+fhFcInitialiser :: Member File iface => User iface FCState
+fhFcInitialiser =
+  do s <- fRead;
+     return (s,"")
 
-fhFcFinally :: Member File iface => FCState -> a -> Comp iface a
-fhFcFinally (_,s) x = do _ <- focus (perform (Write s)); return x
-
-fhFcLens :: Member File iface => IFLens iface FCState a a
-fhFcLens = mkIFLens fhFcInitially fhFcFinally
+fhFcFinaliser :: Member File iface => a -> FCState -> User iface a
+fhFcFinaliser x (_,s) =
+  do _ <- fWrite s;
+     return x
 
 --
--- Derived using-file construct using the
--- composite IO <-> FIO <-> FH <-> FC lens.
+-- Derived with-file construct using the
+-- composite IO <-> FIO <-> FH <-> FC.
 --
-withFile :: FilePath -> Comp '[File] a -> Comp '[IO] a
-withFile fn c =
+withFile :: FilePath -> User '[File] a -> User '[IO] a
+withFile fn m =
   run
-    fioComodel
-    ioFioLens
+    fioRunner
+    ioFioInitialiser
     (
       run
-        fhComodel
-        (fioFhLens fn)
+        fhRunner
+        (fioFhInitialiser fn)
         (
           run
-            fcComodel
-            fhFcLens
-            c
+            fcRunner
+            fhFcInitialiser
+            m
+            fhFcFinaliser
         )
+        fioFhFinaliser
     )
+    ioFioFinaliser
