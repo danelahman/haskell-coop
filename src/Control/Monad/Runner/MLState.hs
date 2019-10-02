@@ -8,7 +8,7 @@
 
 module Control.Monad.Runner.MLState
   (
-  Ref, MLState, mlRunner, mlTopLevel,
+  Ref, MLState, mlRunner, mlInitialiser, mlFinaliser, mlTopLevel,
   alloc, (!), (=:=),
   Typeable
   ) where
@@ -128,12 +128,18 @@ mlRunner = mkRunner mlCoOps
 --
 -- Top-Level running of the ML-style memory.
 --
+mlInitialiser :: User iface Heap
+mlInitialiser = return (H { memory = \ _ -> Nothing , next_addr = Z })
+
+mlFinaliser :: a -> Heap -> User iface a
+mlFinaliser x _ = return x
+
 mlTopLevel :: User '[MLState] a -> a
 mlTopLevel m =
   pureTopLevel (
     run
       mlRunner
-      (return (H { memory = \ _ -> Nothing , next_addr = Z }))
+      mlInitialiser
       m
-      (\ x _ -> return x)
+      mlFinaliser
   )

@@ -6,14 +6,14 @@
 
 module FileIOAndMLStateTests where
 
-import Control.Monad.Comodel
-import Control.Monad.Comodel.FileIO hiding (withFile)
-import Control.Monad.Comodel.FileIOAndMLState
-import Control.Monad.Comodel.MLState hiding (topLevel)
+import Control.Monad.Runner
+import Control.Monad.Runner.FileIO hiding (withFile)
+import Control.Monad.Runner.FileIOAndMLState
+import Control.Monad.Runner.MLState hiding (mlTopLevel)
 
 import Data.Typeable
 
-test1 :: FilePath -> Comp '[IO,MLState] String
+test1 :: FilePath -> User '[IO,MLState] String
 test1 fn =
   do r <- alloc "";
      withFile
@@ -32,4 +32,4 @@ test1 fn =
      s' <- (!) r;
      return s'
      
-test2 = topLevel (test1 "./out.txt")
+test2 = ioMltopLevel (test1 "./out.txt")

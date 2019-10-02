@@ -2,11 +2,11 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 
-module Control.Monad.Comodel.FileIOAndMLState (withFile, topLevel) where
+module Control.Monad.Runner.FileIOAndMLState (withFile, ioMltopLevel) where
 
-import Control.Monad.Comodel
-import Control.Monad.Comodel.FileIO hiding (withFile)
-import Control.Monad.Comodel.MLState hiding (topLevel)
+import Control.Monad.Runner
+import Control.Monad.Runner.FileIO hiding (withFile)
+import Control.Monad.Runner.MLState hiding (mlTopLevel)
 
 import System.IO hiding (withFile)
 
@@ -15,28 +15,32 @@ import System.IO hiding (withFile)
 --
 -- Currently limited to the use of one file at a time.
 --
-withFile :: FilePath -> Comp '[File,MLState] a -> Comp '[IO,MLState] a
+withFile :: FilePath -> User '[File,MLState] a -> User '[IO,MLState] a
 withFile fn c =
   run
-    (pairComodels fioComodel fwdComodel)
-    (pairIFLenses ioFioLens fwdIFLens)
+    (pairRunners fioRunner fwdRunner)
+    (return ((),()))
     (
       run
-        (pairComodels fhComodel (fwdComodel :: Comodel '[FileIO,MLState] '[MLState] ()))
-        (pairIFLenses (fioFhLens fn) fwdIFLens)
+        (pairRunners fhRunner (fwdRunner :: Runner '[MLState] '[FileIO,MLState] ()))
+        (do s <- fioFhInitialiser fn;
+            return (s,()))
         c
+        (\ x (s,()) -> fioFhFinaliser x s)
     )
+    (\ x _ -> return x)
 
 --
 -- Top-level running of file IO plus ML-style state.
 --
-topLevel :: Comp '[IO,MLState] a -> IO a
-topLevel c =
-  runIO
+ioMltopLevel :: User '[IO,MLState] a -> IO a
+ioMltopLevel m =
+  ioTopLevel
     (
       run
-        (pairComodels fwdComodel mlComodel)
-        (pairIFLenses fwdIFLens mlLens)
-        c
+        (pairRunners fwdRunner mlRunner)
+        (do h <- mlInitialiser;
+            return ((),h))
+        m
+        (\ x _ -> return x)
     )
-
