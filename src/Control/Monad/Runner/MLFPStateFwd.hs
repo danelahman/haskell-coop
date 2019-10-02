@@ -4,8 +4,8 @@
 {-# LANGUAGE RankNTypes #-}
 
 module Control.Monad.Runner.MLFPStateFwd (
---  Nat, MemShape(..), Footprint(..), Addr(..),
---  State, get, put, fpComodel, fpLens, withFootprint
+  Nat, MemShape(..), Footprint(..), Addr(..),
+  State, get, put, fpRunner, withFootprint
   ) where
 
 import Control.Monad.Runner

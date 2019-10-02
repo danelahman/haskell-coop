@@ -6,17 +6,17 @@
 --
 -- Here we use the variant of the footprint-based memory that internally only stores
 -- the corresponding ML-style references and immediately delegates/forwards all get  
--- and put operations to the external MLState world (this is as opposed to the 
--- transactional variant in MLFPState and MLFPStateTests files).
+-- and put operations to the external MLState world (this is in contrast to the 
+-- transactional variant of ML-style memory in MLFPState and MLFPStateTests).
 --
 
 module MLFPStateFwdTests where
 
-import Control.Monad.Comodel
-import Control.Monad.Comodel.MLState
-import Control.Monad.Comodel.MLFPStateFwd
+import Control.Monad.Runner
+import Control.Monad.Runner.MLState
+import Control.Monad.Runner.MLFPStateFwd
 
-test1 :: Comp '[MLState] (String,String,String,Bool)
+test1 :: User '[MLState] (String,String,String,Bool)
 test1 =
   do r <- alloc "foobar";
      r' <- alloc "foo";
@@ -34,4 +34,4 @@ test1 =
      x <- (!) r''';
      return (s,s',s'',x)
 
-test2 = topLevel test1
+test2 = mlTopLevel test1 -- expected result ("foobar","bar","foo",True)
