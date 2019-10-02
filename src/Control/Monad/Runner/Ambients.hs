@@ -6,9 +6,11 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
+{-
 module Control.Monad.Runner.Ambients (
   Nat,
-  AmbFun, AmbVal, Amb, 
+  AmbFun, AmbVal, Amb,
+  get, apply,
   rebindVal, rebindFun,
   withAmbVal, withAmbFun,
   ambTopLevel
@@ -92,11 +94,8 @@ data Amb :: * -> * where
   Rebind :: (Typeable a,Typeable b) => AmbFun a b -> (a -> b) -> Amb ()
 
 --
--- Generic effects.
+-- Public generic effects.
 --
-bind :: (Typeable a,Typeable b,Member Amb iface) => (a -> b) -> User iface (AmbFun a b)
-bind f = focus (performU (Bind f))
-
 get :: (Typeable a,Member Amb iface) => AmbVal a -> User iface a
 get x = focus (performU (Apply x ()))
 
@@ -108,6 +107,12 @@ rebindVal x y = focus (performU (Rebind x (\ _ -> y)))
 
 rebindFun :: (Typeable a,Typeable b,Member Amb iface) => AmbFun a b -> (a -> b) -> User iface ()
 rebindFun f g = focus (performU (Rebind f g))
+
+--
+-- Private generic effect.
+--
+bind :: (Typeable a,Typeable b,Member Amb iface) => (a -> b) -> User iface (AmbFun a b)
+bind f = focus (performU (Bind f))
 
 --
 --
@@ -165,3 +170,4 @@ ambTopLevel m =
       m
       ambFinaliser
   )
+-}
