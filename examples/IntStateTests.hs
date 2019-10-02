@@ -19,7 +19,7 @@ test1 =
        return i
   )
 
-test2 = runSt test1
+test2 = runSt test1 -- expected result 42
 
 test3 :: User '[State Z] Int
 test3 =
@@ -33,4 +33,4 @@ test3 =
        return (k + k + 1)
   )
 
-test4 = runSt test3
+test4 = runSt test3 -- expected result 13
