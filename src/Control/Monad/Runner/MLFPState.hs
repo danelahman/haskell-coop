@@ -3,13 +3,14 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Control.Monad.Comodel.MLFPState (Footprint(..), withFootprint) where
+module Control.Monad.Runner.MLFPState (
+  Footprint(..), withFootprint
+  ) where
 
-import Control.Monad.Comodel
-import Control.Monad.Comodel.FPState hiding (fpInitially, fpFinally, fpLens)
-import Control.Monad.Comodel.MLState
+import Control.Monad.Runner
+import Control.Monad.Runner.FPState
+import Control.Monad.Runner.MLState
 
-import Data.Typeable
 import System.IO
 
 --
@@ -20,33 +21,27 @@ data Footprint :: forall memsize . MemShape memsize -> * where
   FC :: (Typeable a) => Ref a -> Footprint sh -> Footprint (ShC a sh)
 
 --
--- Lens for fetching the initial values of the footprint
--- and for writing the final values of the footprint back.
---
-fpInitially :: Footprint memshape -> Comp '[MLState] (Memory memshape)
-fpInitially FE = return ME
-fpInitially (FC r fp) =
-  do mem <- fpInitially fp;
-     x <- (!) r;
-     return (MC x mem)
-
-fpFinally :: Footprint memshape -> Memory memshape -> a -> Comp '[MLState] a
-fpFinally FE _ x = return x
-fpFinally (FC r fp) (MC x mem) y =
-  do z <- fpFinally fp mem y;
-     r =:= x;
-     return z
-
-fpLens :: Footprint memshape -> IFLens '[MLState] (Memory memshape) a a
-fpLens fp = mkIFLens (fpInitially fp) (fpFinally fp)
-
---
 -- With-footprint construct for running a program only
 -- on the footprint of the whole ML-style memory.
 --
-withFootprint :: Footprint memshape -> Comp '[State memshape] a -> Comp '[MLState] a
-withFootprint fp c =
+fpInitialiser :: Footprint memshape -> User '[MLState] (Memory memshape)
+fpInitialiser FE = return ME
+fpInitialiser (FC r fp) =
+  do mem <- fpInitialiser fp;
+     x <- (!) r;
+     return (MC x mem)
+
+fpFinaliser :: Footprint memshape -> a -> Memory memshape -> User '[MLState] a
+fpFinaliser FE x _ = return x
+fpFinaliser (FC r fp) x (MC y mem) =
+  do z <- fpFinaliser fp x mem;
+     r =:= y;
+     return z
+
+withFootprint :: Footprint memshape -> User '[State memshape] a -> User '[MLState] a
+withFootprint fp m =
   run
-    fpComodel
-    (fpLens fp)
-    c
+    fpRunner
+    (fpInitialiser fp)
+    m
+    (error ".")

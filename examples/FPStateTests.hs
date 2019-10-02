@@ -7,17 +7,17 @@
 
 module FPStateTests where
 
-import Control.Monad.Comodel
-import Control.Monad.Comodel.FPState
+import Control.Monad.Runner
+import Control.Monad.Runner.FPState
 
-test1 :: Comp '[State (ShC Int (ShC String ShE))] Int
+test1 :: User '[State (ShC Int (ShC String ShE))] Int
 test1 =
   do x <- get AZ;
      return x
 
-test2 = runFp (MC 42 (MC "foo" ME)) test1
+test2 = fpTopLevel (MC 42 (MC "foo" ME)) test1 -- expected result 42
 
-test3 :: Comp '[State (ShC Int (ShC String ShE))] (Int,String)
+test3 :: User '[State (ShC Int (ShC String ShE))] (Int,String)
 test3 =
   do s <- get (AS AZ);
      x <- get AZ;
@@ -27,4 +27,4 @@ test3 =
      s' <- get (AS AZ);
      return (x',s')
 
-test4 = runFp (MC 42 (MC "foo" ME)) test3
+test4 = fpTopLevel (MC 42 (MC "foo" ME)) test3 -- expected result (49,"foobar")

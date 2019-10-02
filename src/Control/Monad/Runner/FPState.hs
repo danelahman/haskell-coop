@@ -3,12 +3,12 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Control.Monad.Comodel.FPState (
+module Control.Monad.Runner.FPState (
   Nat, MemShape(..), Memory(..), Addr(..),
-  State, get, put, fpComodel, fpLens, runFp
+  State, get, put, fpRunner, fpTopLevel
   ) where
 
-import Control.Monad.Comodel
+import Control.Monad.Runner
 import System.IO
 
 --
@@ -58,44 +58,37 @@ data State (memshape :: MemShape memsize) :: * -> * where
   Put :: Addr a memshape -> a -> State memshape ()
 
 --
--- Human-readable syntax for State n operations.
+-- Generic effects.
 --
-get :: Addr a memshape -> Comp '[State memshape] a
-get addr = perform (Get addr)
+get :: Addr a memshape -> User '[State memshape] a
+get addr = performU (Get addr)
 
-put :: Addr a memshape -> a -> Comp '[State memshape] ()
-put addr x = perform (Put addr x)
+put :: Addr a memshape -> a -> User '[State memshape] ()
+put addr x = performU (Put addr x)
 
 --
 -- State comodel for memshape-shaped memory and references.
 --
-fpCoOps :: State memshape r -> Memory memshape -> Comp iface (r,Memory memshape)
-fpCoOps (Get addr) mem = return (lkp mem addr , mem)
-fpCoOps (Put addr x) mem = return (() , upd mem addr x)
+fpCoOps :: State memshape a -> Kernel iface (Memory memshape) a
+fpCoOps (Get addr) =
+  do mem <- getEnv;
+     return (lkp mem addr)
+fpCoOps (Put addr x) =
+  do mem <- getEnv;
+     setEnv (upd mem addr x)
 
-fpComodel :: Comodel iface '[State memshape] (Memory memshape)
-fpComodel = mkComodel fpCoOps
-
---
--- PURE <-> State footprint lens.
---
-fpInitially :: Memory memshape -> Comp '[] (Memory memshape)
-fpInitially init = return init
-
-fpFinally :: Memory memshape -> a -> Comp '[] a
-fpFinally _ x = return x
-
-fpLens :: Memory memshape -> IFLens '[] (Memory memshape) a a
-fpLens init = mkIFLens (fpInitially init) fpFinally
+fpRunner :: Runner '[State memshape] iface (Memory memshape)
+fpRunner = mkRunner fpCoOps
 
 --
 -- Top-level running of a footprint of memory. 
 --
-runFp :: Memory memshape -> Comp '[State memshape] a -> a
-runFp init c =
-  runPure (
+fpTopLevel :: Memory memshape -> User '[State memshape] a -> a
+fpTopLevel init m =
+  pureTopLevel (
     run
-      fpComodel
-      (fpLens init)
-      c
+      fpRunner
+      (return init)
+      m
+      (\ x _ -> return x)
   )

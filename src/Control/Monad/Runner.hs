@@ -42,8 +42,12 @@ newtype User iface a =
 -- effects in `iface` and access runtime state of type `c`.
 -- We use kernel computations to implement co-operations.
 --
-newtype Kernel iface s a =
-  KC (s -> Eff iface (a,s)) deriving (Functor)
+-- The type `Kernel iface c a` captures the typing judgement
+--
+--   Gamma  |-^iface  K  :  a @ c
+--
+newtype Kernel iface c a =
+  KC (c -> Eff iface (a,c)) deriving (Functor)
 
 instance Applicative (Kernel iface c) where
   pure v = KC (\ c -> return (v,c))

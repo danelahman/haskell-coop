@@ -37,7 +37,7 @@ data State (memsize :: Nat) :: * -> * where
   Put :: Addr memsize -> Int -> State memsize ()
 
 --
--- Generic effects for State n operations.
+-- Generic effects.
 --
 get :: Addr memsize -> User '[State memsize] Int
 get addr = performU (Get addr)
@@ -50,7 +50,7 @@ put addr x = performU (Put addr x)
 --
 type Memory = Int
 
-stCoOps :: State (S memsize) r -> Kernel '[State memsize] Memory r
+stCoOps :: State (S memsize) a -> Kernel '[State memsize] Memory a
 stCoOps (Get AZ) = getEnv
 stCoOps (Get (AS addr)) = performK (Get addr)
 stCoOps (Put AZ x) = setEnv x
@@ -88,5 +88,9 @@ topRunner = mkRunner topCoOps
 runSt :: User '[State Z] a -> a
 runSt m =
   pureTopLevel (
-    run topRunner (return ()) m (\ x _ -> return x) 
+    run
+      topRunner
+      (return ())
+      m
+      (\ x _ -> return x) 
   )

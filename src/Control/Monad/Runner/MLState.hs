@@ -38,6 +38,11 @@ instance Eq Nat where
 -- explicit type casting in `mem_upd` to decide
 -- the equality of two typed references.
 --
+-- As a standard move, each reference stores its
+-- initial value to be able to return a default
+-- value when the given reference happens to not
+-- be in the given heap.
+--
 data Ref a where
   R :: (Typeable a) => Nat -> a -> Ref a
 
@@ -90,7 +95,7 @@ data MLState :: * -> * where
   Assign :: (Typeable a) => Ref a -> a -> MLState ()
 
 --
--- Human-readable syntactic sugar.
+-- Generic effects.
 --
 alloc :: (Typeable a,Member MLState iface) => a -> User iface (Ref a)
 alloc init = focus (performU (Alloc init))
@@ -104,7 +109,7 @@ alloc init = focus (performU (Alloc init))
 --
 -- ML-style memory runner.
 --
-mlCoOps :: MLState r -> Kernel iface Heap r
+mlCoOps :: MLState a -> Kernel iface Heap a
 mlCoOps (Alloc init) =
   do h <- getEnv;
      (r,h') <- return (heap_alloc h init);
@@ -115,8 +120,7 @@ mlCoOps (Deref r)    =
      return (heap_sel h r)
 mlCoOps (Assign r x) =
   do h <- getEnv;
-     setEnv (heap_upd h r x);
-     return ()
+     setEnv (heap_upd h r x)
 
 mlRunner :: Runner '[MLState] iface Heap
 mlRunner = mkRunner mlCoOps

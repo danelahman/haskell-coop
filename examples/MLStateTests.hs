@@ -9,8 +9,6 @@ module MLStateTests where
 import Control.Monad.Runner
 import Control.Monad.Runner.MLState
 
---import Data.Typeable
-
 test1 :: Int -> Int -> User '[MLState] (Int,Int)
 test1 x y =
   do r <- alloc x;
