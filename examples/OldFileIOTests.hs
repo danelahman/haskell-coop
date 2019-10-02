@@ -3,100 +3,108 @@
 {-# LANGUAGE GADTs #-}
 
 --
--- Example tests for the file-comodels in OldFileIO.
+-- Example tests for the file-runners in OldFileIO.
 --
 
 module OldFileIOTests where
 
-import Control.Monad.Comodel
-import Control.Monad.Comodel.OldFileIO
+import Control.Monad.Runner
+import Control.Monad.Runner.OldFileIO
 
 import System.IO
 
-test1 :: Comp '[File] ()
+test1 :: User '[File] ()
 test1 =
-  do s <- focus (perform Read);
+  do s <- focus (performU Read);
      if s == "foo"
-     then (focus (perform (Write "contents was foo")))
-     else (focus (perform (Write "contents was not foo")))
+     then (focus (performU (Write "contents was foo")))
+     else (focus (performU (Write "contents was not foo")))
 
-writeLines :: Member File iface => [String] -> Comp iface ()
+writeLines :: Member File iface => [String] -> User iface ()
 writeLines [] = return ()
-writeLines (l:ls) = do _ <- focus (perform (Write l));
-                       focus (perform (Write "\n"));
+writeLines (l:ls) = do _ <- focus (performU (Write l));
+                       focus (performU (Write "\n"));
                        writeLines ls
 
 exampleLines = ["Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
                 "Cras sit amet felis arcu.",
                 "Maecenas ac mollis mauris, vel fermentum nibh."]
 
-test2 :: Comp '[IO] ()
-test2 =                                         -- in IO context
+test2 :: User '[IO] ()
+test2 =                                         -- in IO signature
   run
-    fioComodel
-    ioFioLens
-    (                                           -- in FileIO context
+    fioRunner
+    ioFioInitialiser
+    (                                           -- in FileIO signature
       run
-        fhComodel
-        (fioFhLens "./out.txt")
-        (                                       -- in File context, with FH comodel
-          writeLines exampleLines               -- this comodel appends to the existing file
+        fhRunner
+        (fioFhInitialiser "./out.txt")
+        (                                       -- in File signature, with FH runner
+          writeLines exampleLines               -- this runner appends to the existing file
         )
+        fioFhFinaliser
     )
+    ioFioFinaliser
 
-test3 = runIO test2
+test3 = ioTopLevel test2
 
-test4 :: Comp '[IO] ()
-test4 =                                         -- in IO context
+test4 :: User '[IO] ()
+test4 =                                         -- in IO signature
   run
-    fioComodel
-    ioFioLens
-    (                                           -- in FileIO context
+    fioRunner
+    ioFioInitialiser
+    (                                           -- in FileIO signature
       run
-        fcComodel
-        (fioFcLens "./out2.txt")
-        (                                       -- in File context, with FC comodel
-          writeLines exampleLines               -- this comodel appends to the existing file
+        fcRunner
+        (fioFcInitialiser "./out2.txt")
+        (                                       -- in File signature, with FC runner
+          writeLines exampleLines               -- this runner appends to the existing file
         )
+        (fioFcFinaliser "./out2.txt")
     )
+    ioFioFinaliser
 
-test5 = runIO test4
+test5 = ioTopLevel test4
 
-test6 :: Comp '[IO] ()
-test6 =                                         -- in IO context
+test6 :: User '[IO] ()
+test6 =                                         -- in IO signature
   run
-    fioComodel
-    ioFioLens
-    (                                           -- in FileIO context
+    fioRunner
+    ioFioInitialiser
+    (                                           -- in FileIO signature
       run
-        fcOwComodel
-        (fioFcOwLens "./out3.txt")
-        (                                       -- in File context, with FC+OW comodel
-          writeLines exampleLines               -- this comodel overwrites the existing file
+        fcOwRunner
+        (fioFcOwInitialiser "./out3.txt")
+        (                                       -- in File signature, with FC+OW runner
+          writeLines exampleLines               -- this runner overwrites the existing file
         )
+        (fioFcOwFinaliser "./out3.txt")
     )
+    ioFioFinaliser
 
-test7 = runIO test6
+test7 = ioTopLevel test6
 
-test8 :: Comp '[IO] ()
-test8 =                                         -- in IO context
+test8 :: User '[IO] ()
+test8 =                                         -- in IO signature
   run
-    fioComodel
-    ioFioLens
-    (                                           -- in FileIO context
+    fioRunner
+    ioFioInitialiser
+    (                                           -- in FileIO signature
       run
-        fcOwComodel
-        (fioFcOwLens "./out4.txt")
-        (                                       -- in File context, with FC+OW comodel
-          do s <- focus (perform Read);
-             focus (perform (Write s));
-             focus (perform (Write "\n"));
-             focus (perform (Write s));
+        fcOwRunner
+        (fioFcOwInitialiser "./out4.txt")
+        (                                       -- in File signature, with FC+OW runner
+          do s <- focus (performU Read);
+             focus (performU (Write s));
+             focus (performU (Write "\n"));
+             focus (performU (Write s));
              if not (s == "foo")
-             then (do _ <- focus (perform Clean);    -- selectively empties file contents
-                      focus (perform (Write "foo"))) 
+             then (do _ <- focus (performU Clean);    -- selectively empties file contents
+                      focus (performU (Write "foo"))) 
              else (return ())
         )
+        (fioFcOwFinaliser "./out4.txt")
     )
+    ioFioFinaliser
 
-test9 = runIO test8
+test9 = ioTopLevel test8
