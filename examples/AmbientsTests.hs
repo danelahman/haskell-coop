@@ -25,7 +25,7 @@ test1 =
       withAmbFun
         (ambFun x)
         (\ f ->                         -- bind an ambient function `f` using the ambient value `x`
-          do _ <- rebindVal x 2;        -- rebind/update the ambient value `x` with value 2
+          do rebindVal x 2;             -- rebind/update the ambient value `x` with value 2
              applyFun f 1))             -- call the ambient function `f`, it will use `x` with value 4 (at `f`'s definition site)
 
 test2 = ambTopLevel test1               -- expected result 5
@@ -38,7 +38,7 @@ test3 =
       withAmbFun
         (ambFun x)
         (\ f ->
-          do _ <- rebindVal x 2;
+          do rebindVal x 2;
              withAmbFun
                (ambFun x)
                (\ g -> applyFun g 1)))
@@ -53,7 +53,7 @@ test5 =
       withAmbFun
         (ambFun x)
         (\ f ->
-          do _ <- rebindVal x 2;
+          do rebindVal x 2;
              withAmbFun
                (ambFun x)
                (\ g -> applyFun f 1)))

@@ -24,11 +24,11 @@ test2 = runSt test1 -- expected result 42
 test3 :: User '[State Z] Int
 test3 =
   withNewRef 4 (
-    do _ <- withNewRef 2 (
-              do i <- get two;         -- reading the outer reference
-                 j <- get one;         -- reading the inner reference
-                 _ <- put two (i + j)  -- writing to the outer reference
-                 return ());
+    do withNewRef 2 (
+         do i <- get two;         -- reading the outer reference
+            j <- get one;         -- reading the inner reference
+            put two (i + j)  -- writing to the outer reference
+            return ());
        k <- get one;
        return (k + k + 1)
   )

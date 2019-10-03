@@ -134,7 +134,7 @@ fhFcInitialiser =
 
 fhFcFinaliser :: a -> String -> User '[File] a
 fhFcFinaliser x s =
-  do _ <- performU (Write s);
+  do performU (Write s);
      return x
 
 --
@@ -149,7 +149,7 @@ fhFcOwFinaliser :: a -> (Either String String) -> User '[File] a
 fhFcOwFinaliser x (Left s) =
   return x
 fhFcOwFinaliser x (Right s) =
-  do _ <- performU (Write s);
+  do performU (Write s);
      return x
 
 --

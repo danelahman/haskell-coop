@@ -15,7 +15,7 @@ import System.IO hiding (withFile)
 
 writeLines :: Member File iface => [String] -> User iface ()
 writeLines [] = return ()
-writeLines (l:ls) = do _ <- fWrite l;
+writeLines (l:ls) = do fWrite l;
                        fWrite "\n";
                        writeLines ls
 
@@ -71,13 +71,13 @@ test5 =                                            -- in IO signature, using IO 
         fhRunner
         (fioFhInitialiser "./out3.txt")
         (                                          -- in File signature, using FH runner
-          do _ <- run
-                    fcRunner
-                    fhFcInitialiser
-                    (                              -- in File signature, using FC runner
-                      writeLines exampleLines      -- writing example lines using FC runner
-                    )
-                    fhFcFinaliser;
+          do run
+               fcRunner
+               fhFcInitialiser
+               (                                   -- in File signature, using FC runner
+                 writeLines exampleLines           -- writing example lines using FC runner
+               )
+               fhFcFinaliser;
              fWrite "Proin eu porttitor enim."     -- writing another line using FH runner
         )
         fioFhFinaliser
@@ -96,20 +96,18 @@ test7 =                                            -- in IO signature, using IO 
         fhRunner
         (fioFhInitialiser "./out3.txt")
         (                                          -- in File signature, using FH runner
-          do _ <- run
-                    fcRunner
-                    fhFcInitialiser
-                    (                              -- in File signature, using FC runner
-                      writeLines exampleLines      -- writing example lines using FC runner
-                    )
-                    (\ x s ->
-                         do _ <- fWrite "Finalising FC runner\n";
+          do run
+               fcRunner
+               fhFcInitialiser
+               (                                   -- in File signature, using FC runner
+                 writeLines exampleLines           -- writing example lines using FC runner
+               )
+               (\ x s -> do fWrite "Finalising FC runner\n";
                             fhFcFinaliser x s);
              fWrite "Proin eu porttitor enim.\n"     -- writing another line using FH runner
         )
-        (\ x (s,fh) ->
-             do _ <- fWriteOS fh "Finalising FH runner\n";
-                fioFhFinaliser x (s,fh))
+        (\ x (s,fh) -> do fWriteOS fh "Finalising FH runner\n";
+                          fioFhFinaliser x (s,fh))
     )
     ioFioFinaliser
 
@@ -120,7 +118,7 @@ test9 =                                                     -- in IO signature, 
   withFile
     "./out4.txt"
     (                                                       -- in File signature, using FIO,FH,FC runners
-      do _ <- writeLines exampleLines;
+      do writeLines exampleLines;
          fWrite "\nProin eu porttitor enim.\n\n";
          s <- fRead;                                        -- the initial contents of the file
          fWrite "\nInitial contents of the file [START]\n";

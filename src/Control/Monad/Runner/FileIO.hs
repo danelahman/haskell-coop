@@ -151,7 +151,7 @@ fioFhInitialiser fn =
 
 fioFhFinaliser :: Member FileIO iface => a -> FHState -> User iface a
 fioFhFinaliser x (_,fh) =
-  do _ <- fCloseOS fh;
+  do fCloseOS fh;
      return x
   
 --
@@ -169,7 +169,7 @@ fhFcInitialiser =
 
 fhFcFinaliser :: Member File iface => a -> FCState -> User iface a
 fhFcFinaliser x (_,s) =
-  do _ <- fWrite s;
+  do fWrite s;
      return x
 
 --

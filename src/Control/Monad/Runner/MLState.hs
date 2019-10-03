@@ -70,7 +70,7 @@ initial (R _ x) = x
 --
 type Memory = forall a . (Typeable a) => Ref a -> Maybe a
 
-data Heap = H { memory :: Memory, next_addr :: Addr }
+data Heap = H { memory :: Memory, nextAddr :: Addr }
 
 heapSel :: (Typeable a) => Heap -> Ref a -> a
 heapSel h r =
@@ -92,9 +92,9 @@ heapUpd h r x = h { memory = memUpd (memory h) r x }
 
 heapAlloc :: (Typeable a) => Heap -> a -> (Ref a,Heap)
 heapAlloc h init =
-  let r = mkRef (next_addr h) init in 
+  let r = mkRef (nextAddr h) init in 
   (r , H { memory = memUpd (memory h) r init ,
-           next_addr = S (next_addr h) })
+           nextAddr = S (nextAddr h) })
 
 --
 -- Signature of ML-style state operations.
@@ -139,7 +139,7 @@ mlRunner = mkRunner mlCoOps
 -- Top-Level running of the ML-style memory.
 --
 mlInitialiser :: User iface Heap
-mlInitialiser = return (H { memory = \ _ -> Nothing , next_addr = Z })
+mlInitialiser = return (H { memory = \ _ -> Nothing , nextAddr = Z })
 
 mlFinaliser :: a -> Heap -> User iface a
 mlFinaliser x _ = return x

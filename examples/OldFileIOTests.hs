@@ -22,7 +22,7 @@ test1 =
 
 writeLines :: Member File iface => [String] -> User iface ()
 writeLines [] = return ()
-writeLines (l:ls) = do _ <- focus (performU (Write l));
+writeLines (l:ls) = do focus (performU (Write l));
                        focus (performU (Write "\n"));
                        writeLines ls
 
@@ -99,7 +99,7 @@ test8 =                                         -- in IO signature
              focus (performU (Write "\n"));
              focus (performU (Write s));
              if not (s == "foo")
-             then (do _ <- focus (performU Clean);    -- selectively empties file contents
+             then (do focus (performU Clean);   -- selectively empties file contents
                       focus (performU (Write "foo"))) 
              else (return ())
         )
