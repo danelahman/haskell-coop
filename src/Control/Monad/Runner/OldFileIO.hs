@@ -71,14 +71,14 @@ fhRunner = mkRunner fhCoOps
 --
 -- FC: File-runner that operates on the contents of a single file.
 --
-fcCoOps :: File a -> Kernel iface String a
+fcCoOps :: File a -> Kernel sig String a
 fcCoOps Read =
   getEnv
 fcCoOps (Write s') =
   do s <- getEnv;
      setEnv (s ++ s')
 
-fcRunner :: Runner '[File] iface String
+fcRunner :: Runner '[File] sig String
 fcRunner = mkRunner fcCoOps
 
 --
@@ -86,7 +86,7 @@ fcRunner = mkRunner fcCoOps
 -- which overwrites the existing contents of a file (in contrast with FC),
 -- and it additionally supports on-demand emptying of the given file.
 --
-fcOwCoOpsAux :: File a -> Either String String -> Kernel iface (Either String String) a
+fcOwCoOpsAux :: File a -> Either String String -> Kernel sig (Either String String) a
 fcOwCoOpsAux Read (Left s) =
   return s
 fcOwCoOpsAux Read (Right s) =
@@ -96,15 +96,15 @@ fcOwCoOpsAux (Write s') (Left _) =
 fcOwCoOpsAux (Write s') (Right s) =
   setEnv (Right (s ++ s'))
 
-fcOwCoOps :: File a -> Kernel iface (Either String String) a
+fcOwCoOps :: File a -> Kernel sig (Either String String) a
 fcOwCoOps f =
   do s <- getEnv;
      fcOwCoOpsAux f s
 
-fcClCoOps :: Cleaner a -> Kernel iface (Either String String) a
+fcClCoOps :: Cleaner a -> Kernel sig (Either String String) a
 fcClCoOps Clean = setEnv (Right "")
 
-fcOwRunner :: Runner '[File,Cleaner] iface (Either String String)
+fcOwRunner :: Runner '[File,Cleaner] sig (Either String String)
 fcOwRunner = unionRunners (mkRunner fcOwCoOps) (mkRunner fcClCoOps)
 
 --

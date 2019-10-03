@@ -13,7 +13,7 @@ import Control.Monad.Runner.FileIO
 
 import System.IO hiding (withFile)
 
-writeLines :: Member File iface => [String] -> User iface ()
+writeLines :: Member File sig => [String] -> User sig ()
 writeLines [] = return ()
 writeLines (l:ls) = do fWrite l;
                        fWrite "\n";

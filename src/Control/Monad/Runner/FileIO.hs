@@ -33,16 +33,16 @@ data FileIO :: * -> * where
 --
 -- Generic effects.
 --
-fOpenOS :: (Member FileIO iface) => FilePath -> IOMode -> User iface Handle
+fOpenOS :: (Member FileIO sig) => FilePath -> IOMode -> User sig Handle
 fOpenOS fn mode = focus (performU (OpenFile fn mode))
 
-fCloseOS :: (Member FileIO iface) => Handle -> User iface ()
+fCloseOS :: (Member FileIO sig) => Handle -> User sig ()
 fCloseOS fh = focus (performU (CloseFile fh))
 
-fReadOS :: (Member FileIO iface) => Handle -> User iface String
+fReadOS :: (Member FileIO sig) => Handle -> User sig String
 fReadOS fh = focus (performU (ReadFile fh))
 
-fWriteOS :: (Member FileIO iface) => Handle -> String -> User iface ()
+fWriteOS :: (Member FileIO sig) => Handle -> String -> User sig ()
 fWriteOS fh s = focus (performU (WriteFile fh s))
 
 --
@@ -58,10 +58,10 @@ data File r where
 --
 -- Generic effects.
 --
-fRead :: (Member File iface) => User iface String
+fRead :: (Member File sig) => User sig String
 fRead = focus (performU Read)
 
-fWrite :: (Member File iface) => String -> User iface ()
+fWrite :: (Member File sig) => String -> User sig ()
 fWrite s = focus (performU (Write s))
 
 --
@@ -72,7 +72,7 @@ fWrite s = focus (performU (Write s))
 --
 type FIOState = ()
 
-fioCoOps :: Member IO iface => FileIO a -> Kernel iface FIOState a
+fioCoOps :: Member IO sig => FileIO a -> Kernel sig FIOState a
 fioCoOps (OpenFile fn mode) =
   execK (focus (performU (openFile fn mode))) return
 fioCoOps (CloseFile fh) =
@@ -83,7 +83,7 @@ fioCoOps (ReadFile fh) =
 fioCoOps (WriteFile fh s) =
   execK (focus (performU (B.hPutStr fh (B.pack s)))) return
 
-fioRunner :: Member IO iface =>  Runner '[FileIO] iface FIOState
+fioRunner :: Member IO sig =>  Runner '[FileIO] sig FIOState
 fioRunner = mkRunner fioCoOps
 
 --
@@ -94,7 +94,7 @@ fioRunner = mkRunner fioCoOps
 --
 type FHState = (String , Handle)
 
-fhCoOps :: Member FileIO iface => File a -> Kernel iface FHState a
+fhCoOps :: Member FileIO sig => File a -> Kernel sig FHState a
 fhCoOps Read =
   do (s,fh) <- getEnv;
      return s
@@ -102,7 +102,7 @@ fhCoOps (Write s') =
   do (s,fh) <- getEnv;
      execK (focus (performU (WriteFile fh s'))) return
 
-fhRunner :: Member FileIO iface => Runner '[File] iface FHState
+fhRunner :: Member FileIO sig => Runner '[File] sig FHState
 fhRunner = mkRunner fhCoOps
 
 --
@@ -113,7 +113,7 @@ fhRunner = mkRunner fhCoOps
 --
 type FCState = (String , String)
 
-fcCoOps :: File a -> Kernel iface FCState a
+fcCoOps :: File a -> Kernel sig FCState a
 fcCoOps Read =
   do (s,s') <- getEnv;
      return s
@@ -121,16 +121,16 @@ fcCoOps (Write s'') =
   do (s,s') <- getEnv;
      setEnv (s,s' ++ s'')
 
-fcRunner :: Runner '[File] iface FCState
+fcRunner :: Runner '[File] sig FCState
 fcRunner = mkRunner fcCoOps
 
 --
 -- IO <-> FIO.
 --
-ioFioInitialiser :: Member IO iface => User iface FIOState
+ioFioInitialiser :: Member IO sig => User sig FIOState
 ioFioInitialiser = return ()
 
-ioFioFinaliser :: Member IO iface => a -> FIOState -> User iface a
+ioFioFinaliser :: Member IO sig => a -> FIOState -> User sig a
 ioFioFinaliser x _ = return x
 
 --
@@ -141,7 +141,7 @@ ioFioFinaliser x _ = return x
 --
 -- Finaliser: The file handle is closed.
 --
-fioFhInitialiser :: Member FileIO iface => FilePath -> User iface FHState
+fioFhInitialiser :: Member FileIO sig => FilePath -> User sig FHState
 fioFhInitialiser fn =
   do fh <- fOpenOS fn ReadWriteMode;
      s <- fReadOS fh;
@@ -149,7 +149,7 @@ fioFhInitialiser fn =
      fh <- fOpenOS fn WriteMode;
      return (s,fh)
 
-fioFhFinaliser :: Member FileIO iface => a -> FHState -> User iface a
+fioFhFinaliser :: Member FileIO sig => a -> FHState -> User sig a
 fioFhFinaliser x (_,fh) =
   do fCloseOS fh;
      return x
@@ -162,12 +162,12 @@ fioFhFinaliser x (_,fh) =
 --
 -- Finaliser: The new contents is written to the file.
 --
-fhFcInitialiser :: Member File iface => User iface FCState
+fhFcInitialiser :: Member File sig => User sig FCState
 fhFcInitialiser =
   do s <- fRead;
      return (s,"")
 
-fhFcFinaliser :: Member File iface => a -> FCState -> User iface a
+fhFcFinaliser :: Member File sig => a -> FCState -> User sig a
 fhFcFinaliser x (_,s) =
   do fWrite s;
      return x

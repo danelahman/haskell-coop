@@ -107,19 +107,19 @@ data MLState :: * -> * where
 --
 -- Generic effects.
 --
-alloc :: (Typeable a,Member MLState iface) => a -> User iface (Ref a)
+alloc :: (Typeable a,Member MLState sig) => a -> User sig (Ref a)
 alloc init = focus (performU (Alloc init))
 
-(!) :: (Typeable a,Member MLState iface) => Ref a -> User iface a
+(!) :: (Typeable a,Member MLState sig) => Ref a -> User sig a
 (!) r = focus (performU (Deref r))
 
-(=:=) :: (Typeable a,Member MLState iface) => Ref a -> a -> User iface ()
+(=:=) :: (Typeable a,Member MLState sig) => Ref a -> a -> User sig ()
 (=:=) r x = focus (performU (Assign r x))
 
 --
 -- ML-style memory runner.
 --
-mlCoOps :: MLState a -> Kernel iface Heap a
+mlCoOps :: MLState a -> Kernel sig Heap a
 mlCoOps (Alloc init) =
   do h <- getEnv;
      (r,h') <- return (heapAlloc h init);
@@ -132,16 +132,16 @@ mlCoOps (Assign r x) =
   do h <- getEnv;
      setEnv (heapUpd h r x)
 
-mlRunner :: Runner '[MLState] iface Heap
+mlRunner :: Runner '[MLState] sig Heap
 mlRunner = mkRunner mlCoOps
 
 --
 -- Top-Level running of the ML-style memory.
 --
-mlInitialiser :: User iface Heap
+mlInitialiser :: User sig Heap
 mlInitialiser = return (H { memory = \ _ -> Nothing , nextAddr = Z })
 
-mlFinaliser :: a -> Heap -> User iface a
+mlFinaliser :: a -> Heap -> User sig a
 mlFinaliser x _ = return x
 
 mlTopLevel :: User '[MLState] a -> a

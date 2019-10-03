@@ -73,7 +73,7 @@ put addr x = performU (Put addr x)
 --
 -- State comodel for memshape-shaped memory and references.
 --
-fpCoOps :: State memshape a -> Kernel iface (Memory memshape) a
+fpCoOps :: State memshape a -> Kernel sig (Memory memshape) a
 fpCoOps (Get addr) =
   do mem <- getEnv;
      return (lkp mem addr)
@@ -81,7 +81,7 @@ fpCoOps (Put addr x) =
   do mem <- getEnv;
      setEnv (upd mem addr x)
 
-fpRunner :: Runner '[State memshape] iface (Memory memshape)
+fpRunner :: Runner '[State memshape] sig (Memory memshape)
 fpRunner = mkRunner fpCoOps
 
 --

@@ -69,7 +69,7 @@ type AmbEff a = User '[Amb] a
 type Depth = Nat
 
 type AmbMemory =
-  forall a b iface .
+  forall a b sig .
     (Typeable a,Typeable b) =>
       AmbFun a b -> Depth -> Maybe (a -> AmbEff b)
 
@@ -166,7 +166,7 @@ bind f = focus (performU (Bind f))
 -- function in the heap, and runs the application
 -- at the corresponding depth of the callstack.
 --
-ambCoOps :: Amb a -> Kernel iface AmbHeap a
+ambCoOps :: Amb a -> Kernel sig AmbHeap a
 ambCoOps (Bind f) =
   do h <- getEnv;
      (f,h') <- return (ambHeapAlloc h f);
@@ -186,7 +186,7 @@ ambCoOps (Rebind f g) =
   do h <- getEnv;
      setEnv (ambHeapUpd h f g)
 
-ambRunner :: Runner '[Amb] iface AmbHeap
+ambRunner :: Runner '[Amb] sig AmbHeap
 ambRunner = mkRunner ambCoOps
 
 --
@@ -212,13 +212,13 @@ withAmbFun f k =
 --
 -- Top-level for running ambient functions.
 --
-ambInitialiser :: User iface AmbHeap
+ambInitialiser :: User sig AmbHeap
 ambInitialiser =
   return (H { memory = \ _ _ -> Nothing ,
               nextAddr = Z ,
               depth = Z })
 
-ambFinaliser :: a -> AmbHeap -> User iface a
+ambFinaliser :: a -> AmbHeap -> User sig a
 ambFinaliser x _ = return x
 
 ambTopLevel :: AmbEff a -> a
