@@ -31,36 +31,36 @@ import Control.Monad.Freer.Internal hiding (run)
 --
 -- User monad modelling user computations waiting to be run
 -- by some enveloping runner. We define this monad on top of
--- the Freer monad, and analogously iface is a list of
--- effects, each represented by a type of kind `* -> *`.
+-- the Freer monad, and analogously `sig` is a signature of
+-- effects, given by a list of type-functions `* -> *`.
 --
--- The type `User iface a` captures the typing judgement
+-- The type `User sig a` captures the typing judgement
 --
---   Gamma  |-^iface  M  :  a
+--   Gamma  |-^sig  M  :  a
 --
-newtype User iface a =
-  UC (Eff iface a) deriving (Functor,Applicative,Monad)
+newtype User sig a =
+  UC (Eff sig a) deriving (Functor,Applicative,Monad)
 
 --
 -- Kernel monad modelling kernel computations that can trigger
--- effects in `iface` and access runtime state of type `c`.
+-- effects in `sig` and access runtime state of type `c`.
 -- We use kernel computations to implement co-operations.
 --
--- The type `Kernel iface c a` captures the typing judgement
+-- The type `Kernel sig c a` captures the typing judgement
 --
---   Gamma  |-^iface  K  :  a @ c
+--   Gamma  |-^sig  K  :  a @ c
 --
-newtype Kernel iface c a =
-  KC (c -> Eff iface (a,c)) deriving (Functor)
+newtype Kernel sig c a =
+  KC (c -> Eff sig (a,c)) deriving (Functor)
 
-instance Applicative (Kernel iface c) where
+instance Applicative (Kernel sig c) where
   pure v = KC (\ c -> return (v,c))
   (KC f) <*> (KC k) =
     KC (\ c -> do (g,c') <- f c;
                   (x,c'') <- k c';
                   return (g x,c''))
 
-instance Monad (Kernel iface c) where
+instance Monad (Kernel sig c) where
   return x = KC (\ c -> return (x,c))
   (KC k) >>= f =
     KC (\ c -> do (x,c') <- k c;
@@ -69,53 +69,53 @@ instance Monad (Kernel iface c) where
 --
 -- Performing user operations while focussed on a single effect.
 --
--- If working with a bigger interface, first focus on a single
+-- If working with a bigger signature, first focus on a single
 -- effect before calling perform. This is a small price to
--- pay to get more intricate GADT-based interfaces (such as
+-- pay to get more intricate GADT-based signatures (such as
 -- various kinds of state) to work conveniently. In most cases
 -- focussing is limited to defining derived generic effects.
 --
-performU :: e r -> User '[e] r
-performU o = UC (send o)
+performU :: eff r -> User '[eff] r
+performU op = UC (send op)
 
 --
 -- Generic user perform function used internally in this module.
 --
-genPerformU :: Member e iface => e r -> User iface r
-genPerformU o = UC (send o)
+genPerformU :: Member eff sig => eff r -> User sig r
+genPerformU op = UC (send op)
 
 --
 -- Performing kernel operations while focussed on a single effect.
 --
-performK :: e r -> Kernel '[e] c r
-performK o = KC (\ c -> do x <- send o; return (x,c))
+performK :: eff r -> Kernel '[eff] c r
+performK op = KC (\ c -> do x <- send op; return (x,c))
 
 --
 -- Generic kernel perform function used internally in this module.
 --
-genPerformK :: Member e iface => e r -> Kernel iface c r
-genPerformK o = KC (\ c -> do x <- send o; return (x,c))
+genPerformK :: Member eff sig => eff r -> Kernel sig c r
+genPerformK op = KC (\ c -> do x <- send op; return (x,c))
 
 --
 -- State-access operations for the kernel monad.
 --
-getEnv :: Kernel iface c c
+getEnv :: Kernel sig c c
 getEnv = KC (\ c -> return (c,c))
 
-setEnv :: c -> Kernel iface c ()
+setEnv :: c -> Kernel sig c ()
 setEnv c' = KC (\ c -> return ((),c'))
 
 --
 -- Executing a kernel computation inside user computations.
 --
-execU :: Kernel iface c a -> c -> (a -> c -> User iface b) -> User iface b
+execU :: Kernel sig c a -> c -> (a -> c -> User sig b) -> User sig b
 execU (KC k) c f =
   UC (do (x,c') <- k c; let (UC m) = f x c' in m)
 
 --
 -- Executing a user computation inside kernel computations.
 --
-execK :: User iface a -> (a -> Kernel iface c b) -> Kernel iface c b
+execK :: User sig a -> (a -> Kernel sig c b) -> Kernel sig c b
 execK (UC m) f =
   KC (\ c -> do x <- m; let (KC k) = f x in k c)
 
@@ -124,12 +124,12 @@ execK (UC m) f =
 -- argument of CoOps requires a co-operation for each operation
 -- in the given effect `e :: * -> *`, e.g., for `FRead` and `FWrite`.
 --
-data Runner iface iface' c where
-  Empty :: Runner '[] iface' c
-  CoOps :: (forall b . e b -> Kernel iface' c b)
-        -> Runner iface iface' c-> Runner (e ': iface) iface' c
+data Runner sig sig' c where
+  Empty :: Runner '[] sig' c
+  CoOps :: (forall b . eff b -> Kernel sig' c b)
+        -> Runner sig sig' c-> Runner (eff ': sig) sig' c
 
-mkRunner :: (forall b . e b -> Kernel iface c b) -> Runner '[e] iface c
+mkRunner :: (forall b . eff b -> Kernel sig c b) -> Runner '[eff] sig c
 mkRunner coops = CoOps coops Empty
 
 --
@@ -141,7 +141,7 @@ mkRunner coops = CoOps coops Empty
 --
 -- construct for initialising, running, and finalising a user computation.
 --
-runOp :: Runner iface iface' c -> Union iface b -> Kernel iface' c b
+runOp :: Runner sig sig' c -> Union sig b -> Kernel sig' c b
 runOp Empty _ =
   error "this should not have happened"
 runOp (CoOps coop coops) u =
@@ -149,21 +149,21 @@ runOp (CoOps coop coops) u =
     Right o -> coop o
     Left u -> runOp coops u
 
-runU :: Runner iface iface' c
+runU :: Runner sig sig' c
      -> c
-     -> User iface a
-     -> (a -> c -> User iface' b)
-     -> User iface' b
+     -> User sig a
+     -> (a -> c -> User sig' b)
+     -> User sig' b
 runU r c (UC (Val x)) mf = mf x c
 runU r c (UC (E u q)) mf =
   execU (runOp r u) c
         (\ x c' -> runU r c' (UC (qApp q x)) mf)
 
-run :: Runner iface iface' c
-    -> User iface' c
-    -> User iface a
-    -> (a -> c -> User iface' b)
-    -> User iface' b
+run :: Runner sig sig' c
+    -> User sig' c
+    -> User sig a
+    -> (a -> c -> User sig' b)
+    -> User sig' b
 run r mi m mf =
   do c <- mi; runU r c m mf
 
@@ -190,15 +190,15 @@ ioTopLevel = topLevel
 --
 -- Empty runner and union of runners.
 --
-emptyRunner :: Runner '[] iface' c
+emptyRunner :: Runner '[] sig' c
 emptyRunner = Empty
 
-type family IfaceUnion (iface :: [* -> *]) (iface' :: [* -> *]) :: [* -> *] where 
-  IfaceUnion '[] iface' = iface'
-  IfaceUnion (e ': iface) iface' = e ': (IfaceUnion iface iface')
+type family SigUnion (sig :: [* -> *]) (sig' :: [* -> *]) :: [* -> *] where 
+  SigUnion '[] sig' = sig'
+  SigUnion (eff ': sig) sig' = eff ': (SigUnion sig sig')
 
-unionRunners :: Runner iface iface'' c -> Runner iface' iface'' c
-             -> Runner (IfaceUnion iface iface') iface'' c
+unionRunners :: Runner sig sig'' c -> Runner sig' sig'' c
+             -> Runner (SigUnion sig sig') sig'' c
 unionRunners Empty r' = r'
 unionRunners (CoOps coops r) r' =
   CoOps coops (unionRunners r r')
@@ -206,56 +206,56 @@ unionRunners (CoOps coops r) r' =
 --
 -- Embedding a user computations in a larger signature of operations.
 --
-embedU :: User iface a -> User (e ': iface) a
+embedU :: User sig a -> User (eff ': sig) a
 embedU (UC m) = UC (raise m)
 
 --
 -- Embedding a kernel computations in a larger signature of operations.
 --
-embedK :: Kernel iface c a -> Kernel (e ': iface) c a
+embedK :: Kernel sig c a -> Kernel (eff ': sig) c a
 embedK (KC k) = KC (\ c -> do (x,c') <- raise (k c);
                               return (x,c'))
 
 --
 -- Embedding a runner in a larger signature of operations.
 --
-embedRunner :: Runner iface iface' c -> Runner iface (e ': iface') c
+embedRunner :: Runner sig sig' c -> Runner sig (eff ': sig') c
 embedRunner Empty = Empty
 embedRunner (CoOps coops r) =
-  CoOps (\ o -> embedK (coops o)) (embedRunner r)
+  CoOps (\ op -> embedK (coops op)) (embedRunner r)
 
 --
 -- Extending the carrier of a runner with some type/set.
 --
-extendRunner :: Runner iface iface' c' -> Runner iface iface' (c,c')
+extendRunner :: Runner sig sig' c' -> Runner sig sig' (c,c')
 extendRunner Empty = Empty
 extendRunner (CoOps coops r) =
-  CoOps (\ o -> KC (\ (c,c') ->
-                  do (x,c'') <- let (KC k) = coops o in k c';
-                     return (x,(c,c''))))
+  CoOps (\ op -> KC (\ (c,c') ->
+                   do (x,c'') <- let (KC k) = coops op in k c';
+                      return (x,(c,c''))))
         (extendRunner r)
 
 --
 -- Pairing two runners in the same signature of operations.
 --
-pairRunners :: Runner iface iface'' c -> Runner iface' iface'' c'
-            -> Runner (IfaceUnion iface iface') iface'' (c,c')
+pairRunners :: Runner sig sig'' c -> Runner sig' sig'' c'
+            -> Runner (SigUnion sig sig') sig'' (c,c')
 pairRunners Empty r' = extendRunner r'
 pairRunners (CoOps coops r) r' =
-  CoOps (\ o -> KC (\ (c,c') ->
-                  do (x,c'') <- let (KC k) = coops o in k c
-                     return (x,(c'',c'))))
+  CoOps (\ op -> KC (\ (c,c') ->
+                   do (x,c'') <- let (KC k) = coops op in k c
+                      return (x,(c'',c'))))
         (pairRunners r r')
 
 --
 -- Runner that forwards all co-operations to its runtime.
 --
-fwdRunner :: Member e iface => Runner '[e] iface c
+fwdRunner :: Member eff sig => Runner '[eff] sig c
 fwdRunner = CoOps genPerformK Empty
 
 --
 -- Focussing on a particular effect in a larger signature of operations.
 --
-focus :: Member e iface => User '[e] a -> User iface a
+focus :: Member eff sig => User '[eff] a -> User sig a
 focus m =
   run fwdRunner (return ()) m (\ x () -> return x)
