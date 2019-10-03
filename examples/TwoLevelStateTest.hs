@@ -2,9 +2,15 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 
+--
+-- Experiments with a runner for simple 2-level state, 
+-- where the bigger state has 2 locations and the smaller
+-- state has 1 location, and a runner mediates between them.
+--
+
 module TwoLevelStateTest where
 
-import Control.Monad.Comodel
+import Control.Monad.Runner
 
 data BigState :: * -> * where
   Get1 :: BigState Int
@@ -16,60 +22,68 @@ data SmallState :: * -> * where
   Get :: SmallState Int
   Put :: Int -> SmallState ()
 
-smallStateCoOps :: SmallState r -> Int -> Comp '[BigState] (r,Int)
-smallStateCoOps Get     i = return (i ,i)
-smallStateCoOps (Put i) _ = return ((),i)
+smallStateCoOps :: SmallState r -> Kernel '[BigState] Int r
+smallStateCoOps Get =
+  do i <- getEnv;
+     return i
+smallStateCoOps (Put i) =
+  setEnv i
 
-smallStateComodel :: Comodel '[BigState] '[SmallState] Int
-smallStateComodel = mkComodel smallStateCoOps
+smallStateRunner :: Runner '[SmallState] '[BigState] Int
+smallStateRunner = mkRunner smallStateCoOps
 
-smallStateInitially :: Comp '[BigState] Int
+smallStateInitially :: User '[BigState] Int
 smallStateInitially =
-  do i <- perform Get1
+  do i <- performU Get1
      return (i + 7)
 
-smallStateFinally :: Int -> () -> Comp '[BigState] ()
-smallStateFinally i _ = perform (Put1 i)
+smallStateFinally :: () -> Int -> User '[BigState] ()
+smallStateFinally _ i = performU (Put1 i)
 
-bigStateSmallStateLens :: IFLens '[BigState] Int () ()
-bigStateSmallStateLens = mkIFLens smallStateInitially smallStateFinally
-
-smallStateComp :: Comp '[BigState] ()
+smallStateComp :: User '[BigState] ()
 smallStateComp =
   run
-    smallStateComodel
-    bigStateSmallStateLens
+    smallStateRunner
+    smallStateInitially
     (
-      do i <- perform Get;
-         perform (Put (i + 42))
+      do i <- performU Get;
+         performU (Put (i + 42))
     )
+    smallStateFinally
 
-bigStateCoOps :: BigState r -> (Int,String) -> Comp '[] (r,(Int,String))
-bigStateCoOps Get1     (i,s) = return (i ,(i,s))
-bigStateCoOps (Put1 i) (_,s) = return ((),(i,s))
-bigStateCoOps Get2     (i,s) = return (s ,(i,s))
-bigStateCoOps (Put2 s) (i,_) = return ((),(i,s))
+bigStateCoOps :: BigState r -> Kernel '[] (Int,String) r
+bigStateCoOps Get1 =
+  do (i,s) <- getEnv;
+     return i
+bigStateCoOps (Put1 i) =
+  do (_,s) <- getEnv;
+     setEnv (i,s)
+bigStateCoOps Get2 =
+  do (i,s) <- getEnv;
+     return s
+bigStateCoOps (Put2 s) =
+  do (i,_) <- getEnv;
+     setEnv (i,s)
 
-bigStateComodel :: Comodel '[] '[BigState] (Int,String)
-bigStateComodel = mkComodel bigStateCoOps
+bigStateRunner :: Runner '[BigState] '[] (Int,String)
+bigStateRunner = mkRunner bigStateCoOps
 
-bigStateInitially :: Comp '[] (Int,String)
+
+bigStateInitially :: User '[] (Int,String)
 bigStateInitially = return (0,"default value")
 
-bigStateFinally :: (Int,String) -> () -> Comp '[] (Int,String)
-bigStateFinally (i,s) _ = return (i,s)
+bigStateFinally :: () -> (Int,String) -> User '[] (Int,String)
+bigStateFinally _ (i,s) = return (i,s)
 
-pureBigStateLens :: IFLens '[] (Int,String) () (Int,String)
-pureBigStateLens = mkIFLens bigStateInitially bigStateFinally
-
-bigStateComp :: Comp '[] (Int,String)
+bigStateComp :: User '[] (Int,String)
 bigStateComp =
   run
-    bigStateComodel
-    pureBigStateLens
+    bigStateRunner
+    bigStateInitially
     (
       do smallStateComp;
-         perform (Put2 "new value")
+         performU (Put2 "new value")
     )
+    bigStateFinally
 
-test = runPure bigStateComp
+test = pureTopLevel bigStateComp
