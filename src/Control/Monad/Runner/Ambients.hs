@@ -48,7 +48,8 @@ addr_of (F r) = r
 --
 -- Ambient values as a special case of ambient functions.
 --
-type AmbVal a = (Typeable a) => AmbFun () a
+data AmbVal a where
+  AV :: (Typeable a) => AmbFun () a -> AmbVal a
 
 --
 -- Sugar for user computations with the ambient effect. 
@@ -112,13 +113,13 @@ data Amb :: * -> * where
 -- Public generic effects.
 --
 getVal :: (Typeable a) => AmbVal a -> AmbEff a
-getVal x = focus (performU (Apply x ()))
+getVal (AV x) = focus (performU (Apply x ()))
 
 applyFun :: (Typeable a,Typeable b) => AmbFun a b -> a -> AmbEff b
 applyFun f x = focus (performU (Apply f x))
 
 rebindVal :: (Typeable a) => AmbVal a -> a -> AmbEff ()
-rebindVal x y = focus (performU (Rebind x (\ _ -> return y)))
+rebindVal (AV x) y = focus (performU (Rebind x (\ _ -> return y)))
 
 rebindFun :: (Typeable a,Typeable b) => AmbFun a b -> (a -> AmbEff b) -> AmbEff ()
 rebindFun f g = focus (performU (Rebind f g))
@@ -163,7 +164,7 @@ withAmbVal :: (Typeable a)
            -> (AmbVal a -> AmbEff b) -> AmbEff b
 withAmbVal x k =
   do f <- bind (\ _ -> return x);
-     k f
+     k (AV f)
 
 --
 -- Scoped (initial) binding of ambient functions.
