@@ -6,11 +6,10 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-{-
 module Control.Monad.Runner.Ambients (
   Nat,
-  AmbFun, AmbVal, Amb,
-  get, apply,
+  AmbFun, AmbVal, Amb, AmbEff, 
+  getVal, applyFun,
   rebindVal, rebindFun,
   withAmbVal, withAmbFun,
   ambTopLevel
@@ -37,81 +36,87 @@ instance Eq Nat where
 --
 --
 data AmbFun a b where
-  F :: (Typeable a,Typeable b) => Nat -> (a -> b) -> AmbFun a b
+  F :: (Typeable a,Typeable b) => Nat -> AmbFun a b
 
 type AmbVal a = (Typeable a) => AmbFun () a
 
-mkAmb :: (Typeable a,Typeable b) => Nat -> (a -> b) -> AmbFun a b
-mkAmb addr x = F addr x
+type AmbEff a = User '[Amb] a
+
+mkAmb :: (Typeable a,Typeable b) => Nat -> AmbFun a b
+mkAmb addr = F addr
 
 addr_of :: AmbFun a b -> Nat
-addr_of (F r _) = r
-
-initial :: AmbFun a b -> a -> b
-initial (F _ f) = f
+addr_of (F r) = r
 
 --
+-- 
 --
---
+type Stage = Nat
+
 type AmbMemory =
-  forall a b . (Typeable a,Typeable b) => AmbFun a b -> Maybe (a -> b)
-
+  forall a b iface . (Typeable a,Typeable b) => AmbFun a b -> Stage -> Maybe (a -> AmbEff b)
 
 data AmbHeap =
-  H { memory :: AmbMemory, next_addr :: Nat }
+  H { memory :: AmbMemory, nextAddr :: Nat, stage :: Stage }
 
-ambHeapSel :: (Typeable a,Typeable b) => AmbHeap -> AmbFun a b -> a -> b
-ambHeapSel h f =
-  case memory h f of
-    Nothing -> initial f
-    Just f -> f
+ambHeapSel :: (Typeable a,Typeable b) => AmbHeap -> AmbFun a b -> Stage -> (a -> AmbEff b,Stage)
+ambHeapSel h f Z =
+  case memory h f Z of
+    Nothing -> error "Ambient function not bound"
+    Just f -> (f,Z)
+ambHeapSel h f (S s) =
+  case memory h f (S s) of
+    Nothing -> ambHeapSel h f s
+    Just f -> (f,S s)
 
-ambMemUpd :: (Typeable a,Typeable b) => AmbMemory -> AmbFun a b -> (a -> b) -> AmbMemory
-ambMemUpd mem f g f' =
+ambMemUpd :: (Typeable a,Typeable b) => AmbMemory -> AmbFun a b -> (a -> AmbEff b) -> Stage -> AmbMemory
+ambMemUpd mem f g s f' s' =
   case cast g of
-    Nothing -> mem f'
+    Nothing -> mem f' s'
     Just g -> (
-      if addr_of f == addr_of f'
+      if (addr_of f == addr_of f' && s == s')
       then Just g
-      else mem f')
+      else mem f' s')
 
+ambHeapUpd :: (Typeable a,Typeable b) => AmbHeap -> AmbFun a b -> (a -> AmbEff b) -> AmbHeap
+ambHeapUpd h f g = h { memory = ambMemUpd (memory h) f g (stage h) , stage = S (stage h) }
 
-ambHeapUpd :: (Typeable a,Typeable b) => AmbHeap -> AmbFun a b -> (a -> b) -> AmbHeap
-ambHeapUpd h f g = h { memory = ambMemUpd (memory h) f g }
-
-ambHeapAlloc :: (Typeable a,Typeable b) => AmbHeap -> (a -> b) -> (AmbFun a b,AmbHeap)
+ambHeapAlloc :: (Typeable a,Typeable b) => AmbHeap -> (a -> AmbEff b) -> (AmbFun a b,AmbHeap)
 ambHeapAlloc h f =
-  let g = mkAmb (next_addr h) f in 
-  (g , H { memory = ambMemUpd (memory h) g f ,
-           next_addr = S (next_addr h) })
+  let addr = nextAddr h in
+  let g = mkAmb addr in
+  let s = stage h in
+  (g , H { memory = ambMemUpd (memory h) g f s ,
+           nextAddr = S addr ,
+           stage = S s })
 
 --
 --
 --
 data Amb :: * -> * where
-  Bind  :: (Typeable a,Typeable b) => (a -> b) -> Amb (AmbFun a b)
+  Bind  :: (Typeable a,Typeable b) => (a -> AmbEff b) -> Amb (AmbFun a b)
   Apply  :: (Typeable a,Typeable b) => AmbFun a b -> a -> Amb b
-  Rebind :: (Typeable a,Typeable b) => AmbFun a b -> (a -> b) -> Amb ()
-
+  Rebind :: (Typeable a,Typeable b) => AmbFun a b -> (a -> AmbEff b) -> Amb ()
+  
 --
 -- Public generic effects.
 --
-get :: (Typeable a,Member Amb iface) => AmbVal a -> User iface a
-get x = focus (performU (Apply x ()))
+getVal :: (Typeable a) => AmbVal a -> AmbEff a
+getVal x = focus (performU (Apply x ()))
 
-apply :: (Typeable a,Typeable b,Member Amb iface) => AmbFun a b -> a -> User iface b
-apply f x = focus (performU (Apply f x))
+applyFun :: (Typeable a,Typeable b) => AmbFun a b -> a -> AmbEff b
+applyFun f x = focus (performU (Apply f x))
 
-rebindVal :: (Typeable a,Member Amb iface) => AmbVal a -> a -> User iface ()
-rebindVal x y = focus (performU (Rebind x (\ _ -> y)))
+rebindVal :: (Typeable a) => AmbVal a -> a -> AmbEff ()
+rebindVal x y = focus (performU (Rebind x (\ _ -> return y)))
 
-rebindFun :: (Typeable a,Typeable b,Member Amb iface) => AmbFun a b -> (a -> b) -> User iface ()
+rebindFun :: (Typeable a,Typeable b) => AmbFun a b -> (a -> AmbEff b) -> AmbEff ()
 rebindFun f g = focus (performU (Rebind f g))
 
 --
 -- Private generic effect.
 --
-bind :: (Typeable a,Typeable b,Member Amb iface) => (a -> b) -> User iface (AmbFun a b)
+bind :: (Typeable a,Typeable b) => (a -> AmbEff b) -> AmbEff (AmbFun a b)
 bind f = focus (performU (Bind f))
 
 --
@@ -125,8 +130,8 @@ ambCoOps (Bind f) =
      return f
 ambCoOps (Apply f x) =
   do h <- getEnv;
-     f <- return (ambHeapSel h f);
-     return (f x)
+     (f,s) <- return (ambHeapSel h f (stage h));
+     execK (run ambRunner (return (h {stage = s})) (f x) ambFinaliser) return
 ambCoOps (Rebind f g) =
   do h <- getEnv;
      setEnv (ambHeapUpd h f g)
@@ -137,31 +142,30 @@ ambRunner = mkRunner ambCoOps
 --
 --
 --
-withAmbVal :: (Typeable a,Member Amb iface)
+withAmbVal :: (Typeable a)
            => a
-           -> (AmbVal a -> User iface b) -> User iface b
+           -> (AmbVal a -> AmbEff b) -> AmbEff b
 withAmbVal x k =
-  do f <- bind (\ _ -> x);
+  do f <- bind (\ _ -> return x);
      k f
 
-withAmbFun :: (Typeable a,Typeable b,Member Amb iface)
-           => (a -> b)
-           -> (AmbFun a b -> User iface c) -> User iface c
+withAmbFun :: (Typeable a,Typeable b)
+           => (a -> AmbEff b)
+           -> (AmbFun a b -> AmbEff c) -> AmbEff c
 withAmbFun f k =
   do f <- bind f;
      k f
-
 
 --
 --
 --
 ambInitialiser :: User iface AmbHeap
-ambInitialiser = return (H { memory = \ _ -> Nothing , next_addr = Z })
+ambInitialiser = return (H { memory = \ _ _ -> Nothing , nextAddr = Z , stage = Z })
 
 ambFinaliser :: a -> AmbHeap -> User iface a
 ambFinaliser x _ = return x
 
-ambTopLevel :: User '[Amb] a -> a
+ambTopLevel :: AmbEff a -> a
 ambTopLevel m =
   pureTopLevel (
     run
@@ -170,4 +174,3 @@ ambTopLevel m =
       m
       ambFinaliser
   )
--}

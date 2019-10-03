@@ -7,18 +7,17 @@
 --
 --
 
-{-
 module AmbientTests where
 
 import Control.Monad.Runner
 import Control.Monad.Runner.Ambients
 
-ambFun1 :: AmbVal Int -> Int -> User '[Amb] Int
+ambFun1 :: AmbVal Int -> Int -> AmbEff Int
 ambFun1 x y =
-  do x <- get x;
+  do x <- getVal x;
      return (x + y)
 
-test1 :: User '[Amb] Int
+test1 :: AmbEff Int
 test1 =
   withAmbVal
     (4 :: Int)
@@ -27,8 +26,6 @@ test1 =
         (ambFun1 x)
         (\ f ->
           do x <- rebindVal x 2;
-             r <- apply f 1;
-             r))
+             applyFun f 1))
 
 test2 = ambTopLevel test1
--}
