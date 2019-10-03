@@ -3,8 +3,12 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 
+--
+-- Footprint-indexed global state implemented using runners.
+--
+
 module Control.Monad.Runner.FPState (
-  Nat, MemShape(..), Memory(..), Addr(..),
+  Nat(..), MemShape(..), Memory(..), Addr(..),
   State, get, put, fpRunner, fpTopLevel
   ) where
 

@@ -2,6 +2,10 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 
+--
+-- Experiments with File IO using a variety of runners.
+--
+
 module Control.Monad.Runner.OldFileIO where
 
 import Control.Monad.Runner

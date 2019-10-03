@@ -4,6 +4,10 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE TypeFamilies #-}
 
+--
+-- Integer-valued state with scoped allocation implemented using runners.
+--
+
 module Control.Monad.Runner.IntState (
   Nat(..), Addr(..),
   State, get, put, 
@@ -63,7 +67,9 @@ stRunner = mkRunner stCoOps
 -- Derived with-new-ref construct, which extends the memory
 -- with a new reference initialized to the given value init.
 --
-withNewRef :: Int -> User '[State (S memsize)] a -> User '[State memsize] a
+withNewRef :: Int
+           -> User '[State (S memsize)] a
+           -> User '[State memsize] a
 withNewRef init m =
   run stRunner (return init) m (\ x _ -> return x)
 

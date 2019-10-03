@@ -2,7 +2,14 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 
-module Control.Monad.Runner.FileIOAndMLState (withFile, ioMltopLevel) where
+--
+-- Combination of the runners for File IO and ML-style state.
+--
+
+module Control.Monad.Runner.FileIOAndMLState
+  (
+  withFile, ioMltopLevel
+  ) where
 
 import Control.Monad.Runner
 import Control.Monad.Runner.FileIO hiding (withFile)

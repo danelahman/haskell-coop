@@ -3,6 +3,10 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 
+--
+-- Experiments with File IO using a variety of runners.
+--
+
 module Control.Monad.Runner.FileIO (
   FileIO, fOpenOS, fCloseOS, fReadOS, fWriteOS,
   File, fRead, fWrite,

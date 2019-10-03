@@ -3,8 +3,14 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 
+--
+-- Focussing on a given footprint of the entire ML-style state
+-- using a runner. The runner directly delegates/forwards state
+-- operations on the footprint to the enveloping ML-style state.
+--
+
 module Control.Monad.Runner.MLFPStateFwd (
-  Nat, MemShape(..), Footprint(..), Addr(..),
+  Nat(..), MemShape(..), Footprint(..), Addr(..),
   State, get, put, fpRunner, withFootprint
   ) where
 

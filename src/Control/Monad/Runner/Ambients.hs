@@ -6,6 +6,10 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
+--
+-- Koka-style ambient values and ambient functions implemented using runners.
+--
+
 module Control.Monad.Runner.Ambients
   (
   AmbFun, AmbVal, Amb, AmbEff, 
@@ -65,12 +69,18 @@ type AmbEff a = User '[Amb] a
 type Depth = Nat
 
 type AmbMemory =
-  forall a b iface . (Typeable a,Typeable b) => AmbFun a b -> Depth -> Maybe (a -> AmbEff b)
+  forall a b iface .
+    (Typeable a,Typeable b) =>
+      AmbFun a b -> Depth -> Maybe (a -> AmbEff b)
 
 data AmbHeap =
   H { memory :: AmbMemory, nextAddr :: Addr, depth :: Depth }
 
-ambHeapSel :: (Typeable a,Typeable b) => AmbHeap -> AmbFun a b -> Depth -> (a -> AmbEff b,Depth)
+ambHeapSel :: (Typeable a,Typeable b)
+           => AmbHeap
+           -> AmbFun a b
+           -> Depth
+           -> (a -> AmbEff b,Depth)
 ambHeapSel h f Z =
   case memory h f Z of
     Nothing -> error "Ambient function not bound"
@@ -80,7 +90,12 @@ ambHeapSel h f (S d) =
     Nothing -> ambHeapSel h f d
     Just f -> (f,S d)
 
-ambMemUpd :: (Typeable a,Typeable b) => AmbMemory -> AmbFun a b -> (a -> AmbEff b) -> Depth -> AmbMemory
+ambMemUpd :: (Typeable a,Typeable b)
+          => AmbMemory
+          -> AmbFun a b
+          -> (a -> AmbEff b)
+          -> Depth
+          -> AmbMemory
 ambMemUpd mem f g d f' d' =
   case cast g of
     Nothing -> mem f' d'
@@ -89,10 +104,19 @@ ambMemUpd mem f g d f' d' =
       then Just g
       else mem f' d')
 
-ambHeapUpd :: (Typeable a,Typeable b) => AmbHeap -> AmbFun a b -> (a -> AmbEff b) -> AmbHeap
-ambHeapUpd h f g = h { memory = ambMemUpd (memory h) f g (depth h) , depth = S (depth h) }
+ambHeapUpd :: (Typeable a,Typeable b)
+           => AmbHeap
+           -> AmbFun a b
+           -> (a -> AmbEff b)
+           -> AmbHeap
+ambHeapUpd h f g =
+  h { memory = ambMemUpd (memory h) f g (depth h) ,
+      depth = S (depth h) }
 
-ambHeapAlloc :: (Typeable a,Typeable b) => AmbHeap -> (a -> AmbEff b) -> (AmbFun a b,AmbHeap)
+ambHeapAlloc :: (Typeable a,Typeable b)
+             => AmbHeap
+             -> (a -> AmbEff b)
+             -> (AmbFun a b,AmbHeap)
 ambHeapAlloc h f =
   let addr = nextAddr h in
   let g = mkAmb addr in
@@ -105,7 +129,7 @@ ambHeapAlloc h f =
 -- Ambient effect, allowing to bind, apply, and rebind ambient functions.
 --
 data Amb :: * -> * where
-  Bind  :: (Typeable a,Typeable b) => (a -> AmbEff b) -> Amb (AmbFun a b)
+  Bind   :: (Typeable a,Typeable b) => (a -> AmbEff b) -> Amb (AmbFun a b)
   Apply  :: (Typeable a,Typeable b) => AmbFun a b -> a -> Amb b
   Rebind :: (Typeable a,Typeable b) => AmbFun a b -> (a -> AmbEff b) -> Amb ()
   
@@ -121,13 +145,18 @@ applyFun f x = focus (performU (Apply f x))
 rebindVal :: (Typeable a) => AmbVal a -> a -> AmbEff ()
 rebindVal (AV x) y = focus (performU (Rebind x (\ _ -> return y)))
 
-rebindFun :: (Typeable a,Typeable b) => AmbFun a b -> (a -> AmbEff b) -> AmbEff ()
+rebindFun :: (Typeable a,Typeable b)
+          => AmbFun a b
+          -> (a -> AmbEff b)
+          -> AmbEff ()
 rebindFun f g = focus (performU (Rebind f g))
 
 --
 -- Private generic effect.
 --
-bind :: (Typeable a,Typeable b) => (a -> AmbEff b) -> AmbEff (AmbFun a b)
+bind :: (Typeable a,Typeable b)
+     => (a -> AmbEff b)
+     -> AmbEff (AmbFun a b)
 bind f = focus (performU (Bind f))
 
 --
@@ -147,7 +176,11 @@ ambCoOps (Apply f x) =
   do h <- getEnv;
      (f,d) <- return (ambHeapSel h f (depth h));
      execK
-       (run ambRunner (return (h {depth = d})) (f x) ambFinaliser)
+       (run
+          ambRunner
+          (return (h {depth = d}))
+          (f x)
+          ambFinaliser)
        return
 ambCoOps (Rebind f g) =
   do h <- getEnv;
@@ -180,7 +213,10 @@ withAmbFun f k =
 -- Top-level for running ambient functions.
 --
 ambInitialiser :: User iface AmbHeap
-ambInitialiser = return (H { memory = \ _ _ -> Nothing , nextAddr = Z , depth = Z })
+ambInitialiser =
+  return (H { memory = \ _ _ -> Nothing ,
+              nextAddr = Z ,
+              depth = Z })
 
 ambFinaliser :: a -> AmbHeap -> User iface a
 ambFinaliser x _ = return x

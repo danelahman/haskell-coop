@@ -6,6 +6,14 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
+--
+-- ML-style state implemented using runners, supporting allocation
+-- lookup, and assignment of memory references. Using polymorphism
+-- provided by Haskell, we store values with arbitrary types, though
+-- we limit ourselves to storing Typable values, so as to be able
+-- to use typecasting as a means for deciding type equality.
+--
+
 module Control.Monad.Runner.MLState
   (
   Ref, MLState,

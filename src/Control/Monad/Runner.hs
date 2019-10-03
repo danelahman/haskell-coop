@@ -6,6 +6,10 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
+--
+-- Effectful runners (without support for exceptions and kill signals).
+--
+
 module Control.Monad.Runner (
   User, Kernel,
   performU, performK,
