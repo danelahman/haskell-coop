@@ -25,7 +25,7 @@ test1 =
       withAmbFun
         (ambFun1 x)
         (\ f ->
-          do x <- rebindVal x 2;
+          do _ <- rebindVal x 2;
              applyFun f 1))
 
 test2 = ambTopLevel test1
