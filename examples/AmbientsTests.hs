@@ -4,7 +4,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 --
---
+-- Tests for ambient functions implemented as a runner in Ambients.
 --
 
 module AmbientTests where

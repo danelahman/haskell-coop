@@ -8,15 +8,15 @@
 
 module Control.Monad.Runner.MLState
   (
-  Ref, MLState, mlRunner, mlInitialiser, mlFinaliser, mlTopLevel,
+  Ref, MLState,
   alloc, (!), (=:=),
+  mlRunner, mlInitialiser, mlFinaliser, mlTopLevel,
   Typeable
   ) where
 
 import Control.Monad.Runner
 
 import Data.Typeable
-import System.IO
 
 --
 -- Datatypes of natural numbers (for memory addresses).
@@ -35,7 +35,7 @@ instance Eq Nat where
 --
 -- We restrict ourselves to references storing
 -- `Typeable` values so as to be able to use
--- explicit type casting in `mem_upd` to decide
+-- explicit type casting in `memUpd` to decide
 -- the equality of two typed references.
 --
 -- As a standard move, each reference stores its
@@ -43,14 +43,16 @@ instance Eq Nat where
 -- value when the given reference happens to not
 -- be in the given heap.
 --
-data Ref a where
-  R :: (Typeable a) => Nat -> a -> Ref a
+type Addr = Nat
 
-mkRef :: (Typeable a) => Nat -> a -> Ref a
+data Ref a where
+  R :: (Typeable a) => Addr -> a -> Ref a
+
+mkRef :: (Typeable a) => Addr -> a -> Ref a
 mkRef addr x = R addr x
 
-addr_of :: Ref a -> Nat
-addr_of (R r _) = r
+addrOf :: Ref a -> Addr
+addrOf (R r _) = r
 
 initial :: Ref a -> a
 initial (R _ x) = x
@@ -60,30 +62,30 @@ initial (R _ x) = x
 --
 type Memory = forall a . (Typeable a) => Ref a -> Maybe a
 
-data Heap = H { memory :: Memory, next_addr :: Nat }
+data Heap = H { memory :: Memory, next_addr :: Addr }
 
-heap_sel :: (Typeable a) => Heap -> Ref a -> a
-heap_sel h r =
+heapSel :: (Typeable a) => Heap -> Ref a -> a
+heapSel h r =
   case memory h r of
     Nothing -> initial r
     Just x -> x
 
-mem_upd :: (Typeable a) => Memory -> Ref a -> a -> Memory
-mem_upd mem r x r' =
+memUpd :: (Typeable a) => Memory -> Ref a -> a -> Memory
+memUpd mem r x r' =
   case cast x of
     Nothing -> mem r'
     Just y -> (
-      if addr_of r == addr_of r'
+      if (addrOf r == addrOf r')
       then Just y
       else mem r')
 
-heap_upd :: (Typeable a) => Heap -> Ref a -> a -> Heap
-heap_upd h r x = h { memory = mem_upd (memory h) r x }
+heapUpd :: (Typeable a) => Heap -> Ref a -> a -> Heap
+heapUpd h r x = h { memory = memUpd (memory h) r x }
 
-heap_alloc :: (Typeable a) => Heap -> a -> (Ref a,Heap)
-heap_alloc h init =
+heapAlloc :: (Typeable a) => Heap -> a -> (Ref a,Heap)
+heapAlloc h init =
   let r = mkRef (next_addr h) init in 
-  (r , H { memory = mem_upd (memory h) r init ,
+  (r , H { memory = memUpd (memory h) r init ,
            next_addr = S (next_addr h) })
 
 --
@@ -112,15 +114,15 @@ alloc init = focus (performU (Alloc init))
 mlCoOps :: MLState a -> Kernel iface Heap a
 mlCoOps (Alloc init) =
   do h <- getEnv;
-     (r,h') <- return (heap_alloc h init);
+     (r,h') <- return (heapAlloc h init);
      setEnv h';
      return r
 mlCoOps (Deref r)    =
   do h <- getEnv;
-     return (heap_sel h r)
+     return (heapSel h r)
 mlCoOps (Assign r x) =
   do h <- getEnv;
-     setEnv (heap_upd h r x)
+     setEnv (heapUpd h r x)
 
 mlRunner :: Runner '[MLState] iface Heap
 mlRunner = mkRunner mlCoOps

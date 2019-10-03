@@ -6,7 +6,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Control.Monad.Runner.Ambients (
+module Control.Monad.Runner.Ambients
+  (
   AmbFun, AmbVal, Amb, AmbEff, 
   getVal, applyFun,
   rebindVal, rebindFun,
@@ -17,7 +18,6 @@ module Control.Monad.Runner.Ambients (
 import Control.Monad.Runner
 
 import Data.Typeable
-import System.IO
 
 --
 -- Datatypes of natural numbers (for memory addresses).
@@ -42,8 +42,8 @@ data AmbFun a b where
 mkAmb :: (Typeable a,Typeable b) => Addr -> AmbFun a b
 mkAmb addr = F addr
 
-addr_of :: AmbFun a b -> Addr
-addr_of (F r) = r
+addrOf :: AmbFun a b -> Addr
+addrOf (F r) = r
 
 --
 -- Ambient values as a special case of ambient functions.
@@ -85,7 +85,7 @@ ambMemUpd mem f g d f' d' =
   case cast g of
     Nothing -> mem f' d'
     Just g -> (
-      if (addr_of f == addr_of f' && d == d')
+      if (addrOf f == addrOf f' && d == d')
       then Just g
       else mem f' d')
 
