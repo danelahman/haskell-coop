@@ -1,4 +1,6 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE RankNTypes #-}
 
 --
 -- Example tests for the ML-style state runner in MLState.
@@ -28,8 +30,8 @@ test3 x =
 
 test4 = mlTopLevel (test3 4) -- expected result 6
 
-test5 :: (Typeable a) => Ref a -> Ref a -> User '[MLState] ()
-test5 r r' =
+test5 :: forall (a :: *) . (Typeable a) => Ref a -> Ref a -> User '[MLState] ()
+test5 r r' =       
   do x <- (!) r;
      y <- (!) r';
      r =:= y;
