@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -118,6 +119,14 @@ instance Monad (Kernel sig e s c) where
   k >>= f = bindK k f
 
 --
+-- Empty type and its eliminator.
+--
+data Zero
+
+impossible :: Zero -> a
+impossible x = case x of {}
+
+--
 -- Performing user operations while focussed on a single effect.
 --
 -- If working with a bigger signature, first focus on a single
@@ -126,13 +135,13 @@ instance Monad (Kernel sig e s c) where
 -- various kinds of state) to work conveniently. In most cases
 -- focussing is limited to defining derived generic effects.
 --
-performU :: eff a -> User '[eff] () a
+performU :: eff a -> User '[eff] Zero a
 performU op = U (do x <- send op; return (Left x))
 
 --
 -- Generic user perform function used internally in this module.
 --
-genPerformU :: Member eff sig => eff a -> User sig () a
+genPerformU :: Member eff sig => eff a -> User sig Zero a
 genPerformU op = U (do x <- send op; return (Left x))
 
 --
@@ -143,13 +152,13 @@ raiseU e = U (return (Right e))
 --
 -- Performing kernel operations while focussed on a single effect.
 --
-performK :: eff a -> Kernel '[eff] () s c a
+performK :: eff a -> Kernel '[eff] Zero s c a
 performK op = K (\ c -> (do x <- send op; return (Left (Left x,c))))
 
 --
 -- Generic kernel perform function used internally in this module.
 --
-genPerformK :: Member eff sig => eff a -> Kernel sig () s c a
+genPerformK :: Member eff sig => eff a -> Kernel sig Zero s c a
 genPerformK op = K (\ c -> (do x <- send op; return (Left (Left x,c))))
 
 --
@@ -226,25 +235,31 @@ execU (K k) c f g h =
           (\ s -> let (U m) = h s in m)
           xs)
 
-{-
 --
 -- Executing a user computation inside kernel computations.
 --
-execK :: User sig a -> (a -> Kernel sig c b) -> Kernel sig c b
-execK (UC m) f =
-  KC (\ c -> do x <- m; let (KC k) = f x in k c)
+execK :: User sig e a
+      -> (a -> Kernel sig e' s c b)
+      -> (e -> Kernel sig e' s c b)
+      -> Kernel sig e' s c b
+execK (U m) f g =
+  K (\ c -> do xe <- m;
+               either
+                 (\ x -> let (K k) = f x in k c)
+                 (\ e -> let (K k) = g e in k c)
+                 xe)
 
 --
 -- A runner is simply a list of co-operations, where the first
 -- argument of CoOps requires a co-operation for each operation
 -- in the given effect `eff :: * -> *`, e.g., for `FRead` and `FWrite`.
 --
-data Runner sig sig' c where
-  Empty :: Runner '[] sig' c
-  CoOps :: (forall b . eff b -> Kernel sig' c b)
-        -> Runner sig sig' c-> Runner (eff ': sig) sig' c
+data Runner sig sig' s c where
+  Empty :: Runner '[] sig' s c
+  CoOps :: (forall b . eff b -> Kernel sig' Zero s c b)
+        -> Runner sig sig' s c-> Runner (eff ': sig) sig' s c
 
-mkRunner :: (forall b . eff b -> Kernel sig c b) -> Runner '[eff] sig c
+mkRunner :: (forall b . eff b -> Kernel sig Zero s c b) -> Runner '[eff] sig s c
 mkRunner coops = CoOps coops Empty
 
 --
@@ -252,11 +267,13 @@ mkRunner coops = CoOps coops Empty
 --
 --  using C @ m_init
 --  run m
---  finally { return x @ c -> m_fin }
+--  finally { return x @ c -> m_val ;
+--            raise  e @ c -> m_exc ;
+--            kill   s     -> m_sig }
 --
 -- construct for initialising, running, and finalising a user computation.
 --
-runOp :: Runner sig sig' c -> Union sig b -> Kernel sig' c b
+runOp :: Runner sig sig' s c -> Union sig b -> Kernel sig' Zero s c b
 runOp Empty _ =
   error "this should not have happened"
 runOp (CoOps coop coops) u =
@@ -264,56 +281,65 @@ runOp (CoOps coop coops) u =
     Right o -> coop o
     Left u -> runOp coops u
 
-runU :: Runner sig sig' c
+runU :: Runner sig sig' s c
      -> c
-     -> User sig a
-     -> (a -> c -> User sig' b)
-     -> User sig' b
-runU r c (UC (Val x)) mf = mf x c
-runU r c (UC (E u q)) mf =
-  execU (runOp r u) c
-        (\ x c' -> runU r c' (UC (qApp q x)) mf)
+     -> User sig e a
+     -> (a -> c -> User sig' e' b)
+     -> (e -> c -> User sig' e' b)
+     -> (s -> User sig' e' b)
+     -> User sig' e' b
+runU r c (U (Val (Left x))) f g h = f x c
+runU r c (U (Val (Right e))) f g h = g e c
+runU r c (U (E op q)) f g h =
+  execU
+    (runOp r op)
+    c
+    (\ x c' -> runU r c' (U (qApp q x)) f g h)
+    (\ e c' -> impossible e)
+    (\ s -> h s)
 
-run :: Runner sig sig' c
-    -> User sig' c
-    -> User sig a
-    -> (a -> c -> User sig' b)
-    -> User sig' b
-run r mi m mf =
-  do c <- mi; runU r c m mf
+run :: Runner sig sig' s c
+    -> User sig' e' c
+    -> User sig e a
+     -> (a -> c -> User sig' e' b)
+     -> (e -> c -> User sig' e' b)
+     -> (s -> User sig' e' b)
+    -> User sig' e' b
+run r i m f g h =
+  do c <- i; runU r c m f g h
 
 --
 -- Running a user computation in a top-level container (monad).
 --
 --
-topLevel :: Monad m => User '[m] a -> m a
-topLevel (UC c) = runM c
+topLevel :: Monad m => User '[m] Zero a -> m a
+topLevel (U m) = runM (fmap (either id impossible) m)
 
 --
 -- Running user computation in a top-level pure containers.
 --
-pureTopLevel :: User '[] a -> a
-pureTopLevel (UC (Val x)) = x
+pureTopLevel :: User '[] Zero a -> a
+pureTopLevel (U (Val (Left x))) = x
 pureTopLevel _ = error "this should not have happened"
 
 --
 -- Short-hand for running user computation ina top-level IO container.
 --
-ioTopLevel :: User '[IO] a -> IO a
+ioTopLevel :: User '[IO] Zero a -> IO a
 ioTopLevel = topLevel
 
 --
 -- Empty runner and union of runners.
 --
-emptyRunner :: Runner '[] sig' c
+emptyRunner :: Runner '[] sig' s c
 emptyRunner = Empty
 
 type family SigUnion (sig :: [* -> *]) (sig' :: [* -> *]) :: [* -> *] where 
   SigUnion '[] sig' = sig'
   SigUnion (eff ': sig) sig' = eff ': (SigUnion sig sig')
 
-unionRunners :: Runner sig sig'' c -> Runner sig' sig'' c
-             -> Runner (SigUnion sig sig') sig'' c
+unionRunners :: Runner sig sig'' s c -> Runner sig' sig'' s c
+             -> Runner (SigUnion sig sig') sig'' s c
 unionRunners Empty r' = r'
 unionRunners (CoOps coops r) r' =
   CoOps coops (unionRunners r r')
@@ -321,20 +347,19 @@ unionRunners (CoOps coops r) r' =
 --
 -- Embedding a user computations in a larger signature of operations.
 --
-embedU :: User sig a -> User (eff ': sig) a
-embedU (UC m) = UC (raise m)
+embedU :: User sig e a -> User (eff ': sig) e a
+embedU (U m) = U (raise m)
 
 --
 -- Embedding a kernel computations in a larger signature of operations.
 --
-embedK :: Kernel sig c a -> Kernel (eff ': sig) c a
-embedK (KC k) = KC (\ c -> do (x,c') <- raise (k c);
-                              return (x,c'))
+embedK :: Kernel sig e s c a -> Kernel (eff ': sig) e s c a
+embedK (K k) = K (\ c -> raise (k c))
 
 --
 -- Embedding a runner in a larger signature of operations.
 --
-embedRunner :: Runner sig sig' c -> Runner sig (eff ': sig') c
+embedRunner :: Runner sig sig' s c -> Runner sig (eff ': sig') s c
 embedRunner Empty = Empty
 embedRunner (CoOps coops r) =
   CoOps (\ op -> embedK (coops op)) (embedRunner r)
@@ -342,36 +367,50 @@ embedRunner (CoOps coops r) =
 --
 -- Extending the carrier of a runner with some type/set.
 --
-extendRunner :: Runner sig sig' c' -> Runner sig sig' (c,c')
+extendRunner :: Runner sig sig' s c' -> Runner sig sig' s (c,c')
 extendRunner Empty = Empty
 extendRunner (CoOps coops r) =
-  CoOps (\ op -> KC (\ (c,c') ->
-                   do (x,c'') <- let (KC k) = coops op in k c';
-                      return (x,(c,c''))))
+  CoOps (\ op -> K (\ (c,c') ->
+                     do xs <- let (K k) = coops op in k c';
+                        either
+                          (\ (xe,c'') -> return (Left (xe,(c,c''))))
+                          (\ s -> return (Right s))
+                          xs))
         (extendRunner r)
 
 --
 -- Pairing two runners in the same signature of operations.
 --
-pairRunners :: Runner sig sig'' c -> Runner sig' sig'' c'
-            -> Runner (SigUnion sig sig') sig'' (c,c')
+pairRunners :: Runner sig sig'' s c -> Runner sig' sig'' s c'
+            -> Runner (SigUnion sig sig') sig'' s (c,c')
 pairRunners Empty r' = extendRunner r'
 pairRunners (CoOps coops r) r' =
-  CoOps (\ op -> KC (\ (c,c') ->
-                   do (x,c'') <- let (KC k) = coops op in k c
-                      return (x,(c'',c'))))
+  CoOps (\ op -> K (\ (c,c') ->
+                     do xs <- let (K k) = coops op in k c
+                        either
+                          (\ (xe,c'') -> return (Left (xe,(c'',c'))))
+                          (\ s -> return (Right s))
+                          xs))
         (pairRunners r r')
-
+        
 --
 -- Runner that forwards all co-operations to its runtime.
 --
-fwdRunner :: Member eff sig => Runner '[eff] sig c
+fwdRunner :: Member eff sig => Runner '[eff] sig s c
 fwdRunner = CoOps genPerformK Empty
 
 --
 -- Focussing on a particular effect in a larger signature of operations.
 --
-focus :: Member eff sig => User '[eff] a -> User sig a
+-- Here the use of `impossible` in fact forces the set of kill signals 
+-- of the given runner `fwdRunner` to be `Zero`.
+--
+focus :: Member eff sig => User '[eff] e a -> User sig e a
 focus m =
-  run fwdRunner (return ()) m (\ x () -> return x)
--}
+  run
+    fwdRunner
+    (return ())
+    m
+    (\ x () -> return x)
+    (\ e () -> raiseU e)
+    impossible

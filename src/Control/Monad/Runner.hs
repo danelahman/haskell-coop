@@ -137,7 +137,7 @@ mkRunner coops = CoOps coops Empty
 --
 --  using C @ m_init
 --  run m
---  finally { return x @ c -> m_fin }
+--  finally { return x @ c -> m_val }
 --
 -- construct for initialising, running, and finalising a user computation.
 --
@@ -213,8 +213,7 @@ embedU (UC m) = UC (raise m)
 -- Embedding a kernel computations in a larger signature of operations.
 --
 embedK :: Kernel sig c a -> Kernel (eff ': sig) c a
-embedK (KC k) = KC (\ c -> do (x,c') <- raise (k c);
-                              return (x,c'))
+embedK (KC k) = KC (\ c -> raise (k c))
 
 --
 -- Embedding a runner in a larger signature of operations.
