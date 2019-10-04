@@ -13,14 +13,17 @@
 --
 
 module Control.Monad.SignalRunner (
---  User, Kernel,
---  performU, performK,
---  getEnv, setEnv,
---  Runner, mkRunner, emptyRunner, unionRunners, pairRunners,
---  run, execU, execK,
---  topLevel, pureTopLevel, ioTopLevel,
---  embedU, embedK, embedRunner, extendRunner, fwdRunner, focus,
---  Member
+  User, Kernel,
+  performU, performK,
+  raiseU, raiseK, kill, 
+  getEnv, setEnv,
+  Runner, mkRunner, emptyRunner, unionRunners, pairRunners,
+  tryWithU, tryWithK, 
+  run, execU, execK,
+  topLevel, pureTopLevel, ioTopLevel,
+  embedU, embedK, embedRunner, extendRunner, fwdRunner, focus,
+  Zero, impossible,
+  Member
   ) where
 
 --
@@ -32,25 +35,6 @@ import Control.Monad.Freer.Internal hiding (run)
 
 import Control.Monad.Except
 import Control.Monad.State
-
-{-
---
--- Exceptional signatures and a their conversion into
--- ordinary Freer monad signatures using `Either`.
---
-type ExcSig = [((* -> *),*)]
-
---newtype EffExcToEff (eff :: * -> *) (exc :: *) (a :: *) =
---  ExcEff (eff (Either exc a))
-
-type EffExcToEff (eff :: * -> *) (exc :: *) (a :: *) =
-  eff (Either exc a)
-
-type family ExcSigToSig (sig :: ExcSig) :: [* -> *] where
-  ExcSigToSig '[] = '[]
-  ExcSigToSig ('(eff,exc) ': sig) =
-    (EffExcToEff eff exc) ': ExcSigToSig sig
--}
 
 --
 -- User monad modelling user computations waiting to be run
@@ -71,11 +55,6 @@ fmapE f (Right e) = Right e
 
 instance Functor (User sig e) where
   fmap f (U m) = U (fmap (fmapE f) m)
-
-appE :: Either (a -> b) e -> Either a e -> Either b e
-appE (Left f) (Left x) = Left (f x)
-appE (Left f) (Right e) = Right e
-appE (Right e) _ = Right e
 
 bindU :: User sig e a -> (a -> User sig e b) -> User sig e b
 bindU m f = tryWithU m f (\ e -> raiseU e)
@@ -134,6 +113,15 @@ impossible x = case x of {}
 -- pay to get more intricate GADT-based signatures (such as
 -- various kinds of state) to work conveniently. In most cases
 -- focussing is limited to defining derived generic effects.
+--
+-- Note: In the given implementation, operations are expected to
+-- encode any exceptions they might raise in their output type
+-- using, e.g., `Either`, and explicitly pattern-match at call
+-- sites. As such, `performU` (and `performK`) do not raise any
+-- exceptions in the User and Kernel monads, cf use of `Zero`.
+--
+-- In future, we hopefully also have some variant of exceptional
+-- signatures working, see the bottom of the page of a sketch.
 --
 performU :: eff a -> User '[eff] Zero a
 performU op = U (do x <- send op; return (Left x))
@@ -414,3 +402,25 @@ focus m =
     (\ x () -> return x)
     (\ e () -> raiseU e)
     impossible
+
+
+{-
+--
+-- TODO: Make exceptional signatures in this style work.
+--
+-- Exceptional signatures and a their conversion into
+-- ordinary Freer monad signatures using `Either`.
+--
+type ExcSig = [((* -> *),*)]
+
+--newtype EffExcToEff (eff :: * -> *) (exc :: *) (a :: *) =
+--  ExcEff (eff (Either exc a))
+
+type EffExcToEff (eff :: * -> *) (exc :: *) (a :: *) =
+  eff (Either exc a)
+
+type family ExcSigToSig (sig :: ExcSig) :: [* -> *] where
+  ExcSigToSig '[] = '[]
+  ExcSigToSig ('(eff,exc) ': sig) =
+    (EffExcToEff eff exc) ': ExcSigToSig sig
+-}
