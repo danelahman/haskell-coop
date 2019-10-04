@@ -1,0 +1,87 @@
+name:                haskell-coop
+version:             0.1.0.0
+cabal-version:       >=1.10
+synopsis:            A library for programming with runners in Haskell
+license:             MIT
+license-file:        LICENSE.md
+author:              Danel Ahman
+maintainer:          danel.ahman@eesti.ee
+copyright:           (c) 2019 Danel Ahman
+category:            Control
+build-type:          Simple
+extra-source-files:  CHANGELOG.md README.md
+homepage:            https://github.com/danelahman/haskell-coop
+
+library
+  exposed-modules:
+    Control.Monad.Runner,
+    Control.Monad.SignalRunner,
+    Control.Monad.Runner.MLFPStateFwd,
+    Control.Monad.Runner.FileIO,
+    Control.Monad.Runner.FileIOAndMLState,
+    Control.Monad.Runner.OldFileIO,
+    Control.Monad.Runner.FPState,
+    Control.Monad.Runner.MLState,
+    Control.Monad.Runner.Ambients,
+    Control.Monad.Runner.MLFPState,
+    Control.Monad.Runner.IntState,
+    Control.Monad.SignalRunner.ExcMLState,
+    Control.Monad.SignalRunner.SignalMLState
+  other-extensions:
+    DataKinds,
+    DeriveFunctor,
+    GADTs,
+    GeneralizedNewtypeDeriving,
+    RankNTypes,
+    TypeFamilies,
+    TypeOperators,
+    EmptyCase,
+    FlexibleContexts,
+    PolyKinds,
+    KindSignatures
+  build-depends:
+    base >=4.12 && <4.13,
+    freer-simple >=1.2 && <1.3,
+    mtl >=2.2 && <2.3,
+    bytestring >=0.10 && <0.11
+  hs-source-dirs:
+    src
+  default-language:
+    Haskell2010
+
+executable haskell-coop-examples
+  main-is: Main.hs
+  other-modules:
+    AmbientsTests
+    ExcMLStateTests
+    FileIOAndMLStateTests
+    FileIOTests
+    FPStateTests
+    IntStateTests
+    MLFPStateFwdTests
+    MLFPStateTests
+    MLStateTests
+    OldFileIOTests
+    SignalMLStateTests
+    TwoLevelStateTest
+  default-extensions:
+    DataKinds,
+    DeriveFunctor,
+    GADTs,
+    GeneralizedNewtypeDeriving,
+    RankNTypes,
+    TypeFamilies,
+    TypeOperators,
+    EmptyCase,
+    FlexibleContexts,
+    PolyKinds,
+    KindSignatures
+  build-depends:
+    base >=4.12 && <4.13,
+    freer-simple >=1.2 && <1.3,
+    mtl >=2.2 && <2.3,
+    bytestring >=0.10 && <0.11
+  hs-source-dirs:
+      examples
+  default-language:
+    Haskell2010
