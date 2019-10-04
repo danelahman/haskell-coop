@@ -14,17 +14,26 @@
 -- to use typecasting as a means for deciding type equality.
 --
 
-module Control.Monad.Runner.MLState
+module Control.SignalRunner.ExcMLState
   (
-  Ref, MLState,
+  Ref, MLState, E(..), 
   alloc, (!), (=:=),
-  mlRunner, mlInitialiser, mlFinaliser, mlTopLevel,
+  mlRunner, mlInitialiser, mlFinaliserVal, mlFinaliserExc, mlFinaliserSig, mlTopLevel,
   Typeable
   ) where
 
-import Control.Monad.Runner
+import Control.SignalRunner
 
 import Data.Typeable
+
+--
+-- Exception(s).
+--
+data E where
+  RefNotInHeapException :: Ref a -> E
+
+instance Show E where
+  show (RefNotInHeapException r) = "RefNotInHeapException -- " ++ show r
 
 --
 -- Datatypes of natural numbers (for memory addresses).
@@ -37,6 +46,10 @@ instance Eq Nat where
   Z == Z = True
   (S n) == (S m) = n == m
   _ == _ = False
+
+instance Show Nat where
+  show Z = "Z"
+  show (S n) = "S " ++ show n
 
 --
 -- Typed references.
@@ -51,6 +64,9 @@ type Addr = Nat
 data Ref a where
   R :: (Typeable a) => Addr -> Ref a
 
+instance Show (Ref a) where
+  show r = "ref. with address " ++ show (addrOf r)
+
 mkRef :: (Typeable a) => Addr -> Ref a
 mkRef addr = R addr
 
@@ -64,11 +80,8 @@ type Memory = forall a . (Typeable a) => Ref a -> Maybe a
 
 data Heap = H { memory :: Memory, nextAddr :: Addr }
 
-heapSel :: (Typeable a) => Heap -> Ref a -> a
-heapSel h r =
-  case memory h r of
-    Nothing -> error "reference not in the heap"
-    Just x -> x
+heapSel :: (Typeable a) => Heap -> Ref a -> Maybe a
+heapSel h r = memory h r
 
 memUpd :: (Typeable a) => Memory -> Ref a -> a -> Memory
 memUpd mem r x r' =
@@ -87,31 +100,33 @@ heapAlloc h init =
   let r = mkRef (nextAddr h) in 
   (r , H { memory = memUpd (memory h) r init ,
            nextAddr = S (nextAddr h) })
-
+           
 --
 -- Signature of ML-style state operations.
 --
 data MLState :: * -> * where
   Alloc  :: (Typeable a) => a -> MLState (Ref a)
-  Deref  :: (Typeable a) => Ref a -> MLState a
+  Deref  :: (Typeable a) => Ref a -> MLState (Either a E)
   Assign :: (Typeable a) => Ref a -> a -> MLState ()
 
 --
 -- Generic effects.
 --
-alloc :: (Typeable a,Member MLState sig) => a -> User sig (Ref a)
-alloc init = focus (performU (Alloc init))
+alloc :: (Typeable a,Member MLState sig) => a -> User sig e (Ref a)
+alloc init = tryWithU (focus (performU (Alloc init))) return impossible
 
-(!) :: (Typeable a,Member MLState sig) => Ref a -> User sig a
-(!) r = focus (performU (Deref r))
+(!) :: (Typeable a,Member MLState sig) => Ref a -> User sig E a
+(!) r = tryWithU (focus (performU (Deref r)))
+          (either return (\ e -> raiseU e))
+          impossible
 
-(=:=) :: (Typeable a,Member MLState sig) => Ref a -> a -> User sig ()
-(=:=) r x = focus (performU (Assign r x))
+(=:=) :: (Typeable a,Member MLState sig) => Ref a -> a -> User sig e ()
+(=:=) r x = tryWithU (focus (performU (Assign r x))) return impossible
 
 --
 -- ML-style memory runner.
 --
-mlCoOps :: MLState a -> Kernel sig Heap a
+mlCoOps :: MLState a -> Kernel sig Zero Zero Heap a
 mlCoOps (Alloc init) =
   do h <- getEnv;
      (r,h') <- return (heapAlloc h init);
@@ -119,29 +134,40 @@ mlCoOps (Alloc init) =
      return r
 mlCoOps (Deref r)    =
   do h <- getEnv;
-     return (heapSel h r)
+     maybe
+       (return (Right (RefNotInHeapException r)))
+       (\ x -> return (Left x))
+       (heapSel h r)
 mlCoOps (Assign r x) =
   do h <- getEnv;
      setEnv (heapUpd h r x)
 
-mlRunner :: Runner '[MLState] sig Heap
+mlRunner :: Runner '[MLState] sig Zero Heap
 mlRunner = mkRunner mlCoOps
 
 --
 -- Top-Level running of the ML-style memory.
 --
-mlInitialiser :: User sig Heap
+mlInitialiser :: User sig Zero Heap
 mlInitialiser = return (H { memory = \ _ -> Nothing , nextAddr = Z })
 
-mlFinaliser :: a -> Heap -> User sig a
-mlFinaliser x _ = return x
+mlFinaliserVal :: a -> Heap -> User sig Zero a
+mlFinaliserVal x _ = return x
 
-mlTopLevel :: User '[MLState] a -> a
+mlFinaliserExc :: E -> Heap -> User sig Zero a
+mlFinaliserExc e _ = error ("exception reached top level (" ++ show e ++ ")")
+
+mlFinaliserSig :: Zero -> User sig Zero a
+mlFinaliserSig = impossible
+
+mlTopLevel :: User '[MLState] E a -> a
 mlTopLevel m =
   pureTopLevel (
     run
       mlRunner
       mlInitialiser
       m
-      mlFinaliser
+      mlFinaliserVal
+      mlFinaliserExc
+      mlFinaliserSig
   )

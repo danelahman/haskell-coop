@@ -9,8 +9,8 @@
 
 module AmbientsTests where
 
-import Control.Monad.Runner
-import Control.Monad.Runner.Ambients
+import Control.Runner
+import Control.Runner.Ambients
 
 ambFun :: AmbVal Int -> Int -> AmbEff Int
 ambFun x y =

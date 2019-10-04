@@ -10,7 +10,7 @@
 -- Koka-style ambient values and ambient functions implemented using runners.
 --
 
-module Control.Monad.Runner.Ambients
+module Control.Runner.Ambients
   (
   AmbFun, AmbVal, Amb, AmbEff, 
   getVal, applyFun,
@@ -19,7 +19,7 @@ module Control.Monad.Runner.Ambients
   ambTopLevel
   ) where
 
-import Control.Monad.Runner
+import Control.Runner
 
 import Data.Typeable
 

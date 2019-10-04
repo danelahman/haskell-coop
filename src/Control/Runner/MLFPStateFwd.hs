@@ -9,13 +9,13 @@
 -- operations on the footprint to the enveloping ML-style state.
 --
 
-module Control.Monad.Runner.MLFPStateFwd (
+module Control.Runner.MLFPStateFwd (
   Nat(..), MemShape(..), Footprint(..), Addr(..),
   State, get, put, fpRunner, withFootprint
   ) where
 
-import Control.Monad.Runner
-import Control.Monad.Runner.MLState
+import Control.Runner
+import Control.Runner.MLState
 
 import Data.Typeable
 import System.IO

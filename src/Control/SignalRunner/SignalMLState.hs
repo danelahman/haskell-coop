@@ -14,26 +14,26 @@
 -- to use typecasting as a means for deciding type equality.
 --
 
-module Control.Monad.SignalRunner.ExcMLState
+module Control.SignalRunner.SignalMLState
   (
-  Ref, MLState, E(..), 
+  Ref, MLState, S(..), 
   alloc, (!), (=:=),
   mlRunner, mlInitialiser, mlFinaliserVal, mlFinaliserExc, mlFinaliserSig, mlTopLevel,
   Typeable
   ) where
 
-import Control.Monad.SignalRunner
+import Control.SignalRunner
 
 import Data.Typeable
 
 --
--- Exception(s).
+-- Kill signal(s).
 --
-data E where
-  RefNotInHeapException :: Ref a -> E
+data S where
+  RefNotInHeapSignal :: Ref a -> S
 
-instance Show E where
-  show (RefNotInHeapException r) = "RefNotInHeapException -- " ++ show r
+instance Show S where
+  show (RefNotInHeapSignal r) = "RefNotInHeapSignal -- " ++ show r
 
 --
 -- Datatypes of natural numbers (for memory addresses).
@@ -106,7 +106,7 @@ heapAlloc h init =
 --
 data MLState :: * -> * where
   Alloc  :: (Typeable a) => a -> MLState (Ref a)
-  Deref  :: (Typeable a) => Ref a -> MLState (Either a E)
+  Deref  :: (Typeable a) => Ref a -> MLState a
   Assign :: (Typeable a) => Ref a -> a -> MLState ()
 
 --
@@ -115,10 +115,8 @@ data MLState :: * -> * where
 alloc :: (Typeable a,Member MLState sig) => a -> User sig e (Ref a)
 alloc init = tryWithU (focus (performU (Alloc init))) return impossible
 
-(!) :: (Typeable a,Member MLState sig) => Ref a -> User sig E a
-(!) r = tryWithU (focus (performU (Deref r)))
-          (either return (\ e -> raiseU e))
-          impossible
+(!) :: (Typeable a,Member MLState sig) => Ref a -> User sig e a
+(!) r = tryWithU (focus (performU (Deref r))) return impossible
 
 (=:=) :: (Typeable a,Member MLState sig) => Ref a -> a -> User sig e ()
 (=:=) r x = tryWithU (focus (performU (Assign r x))) return impossible
@@ -126,7 +124,7 @@ alloc init = tryWithU (focus (performU (Alloc init))) return impossible
 --
 -- ML-style memory runner.
 --
-mlCoOps :: MLState a -> Kernel sig Zero Zero Heap a
+mlCoOps :: MLState a -> Kernel sig Zero S Heap a
 mlCoOps (Alloc init) =
   do h <- getEnv;
      (r,h') <- return (heapAlloc h init);
@@ -135,14 +133,14 @@ mlCoOps (Alloc init) =
 mlCoOps (Deref r)    =
   do h <- getEnv;
      maybe
-       (return (Right (RefNotInHeapException r)))
-       (\ x -> return (Left x))
+       (kill (RefNotInHeapSignal r))
+       (\ x -> return x)
        (heapSel h r)
 mlCoOps (Assign r x) =
   do h <- getEnv;
      setEnv (heapUpd h r x)
 
-mlRunner :: Runner '[MLState] sig Zero Heap
+mlRunner :: Runner '[MLState] sig S Heap
 mlRunner = mkRunner mlCoOps
 
 --
@@ -154,13 +152,13 @@ mlInitialiser = return (H { memory = \ _ -> Nothing , nextAddr = Z })
 mlFinaliserVal :: a -> Heap -> User sig Zero a
 mlFinaliserVal x _ = return x
 
-mlFinaliserExc :: E -> Heap -> User sig Zero a
-mlFinaliserExc e _ = error ("exception reached top level (" ++ show e ++ ")")
+mlFinaliserExc :: Zero -> Heap -> User sig Zero a
+mlFinaliserExc e _ = impossible e
 
-mlFinaliserSig :: Zero -> User sig Zero a
-mlFinaliserSig = impossible
+mlFinaliserSig :: S -> User sig Zero a
+mlFinaliserSig s = error ("signal reached top level (" ++ show s ++ ")")
 
-mlTopLevel :: User '[MLState] E a -> a
+mlTopLevel :: User '[MLState] Zero a -> a
 mlTopLevel m =
   pureTopLevel (
     run

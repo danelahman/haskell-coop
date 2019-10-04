@@ -7,10 +7,10 @@
 
 module MLFPStateTests where
 
-import Control.Monad.Runner
-import Control.Monad.Runner.FPState
-import Control.Monad.Runner.MLState
-import Control.Monad.Runner.MLFPState
+import Control.Runner
+import Control.Runner.FPState
+import Control.Runner.MLState
+import Control.Runner.MLFPState
 
 test1 :: User '[MLState] (String,String,String,Bool)
 test1 =

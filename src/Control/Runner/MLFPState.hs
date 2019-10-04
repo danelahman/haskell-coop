@@ -6,18 +6,18 @@
 --
 -- Focussing on a given footprint of the entire ML-style state
 -- using a runner. The focussing has a transactional flavour:
--- the initialisation copies the values of the given footprint
+-- the initialisation copies the values of the given footprints
 -- to the runner's state, and the finaliser copies the final
 -- values for the footprint back to the ML-style state.
 --
 
-module Control.Monad.Runner.MLFPState (
+module Control.Runner.MLFPState (
   Footprint(..), withFootprint
   ) where
 
-import Control.Monad.Runner
-import Control.Monad.Runner.FPState
-import Control.Monad.Runner.MLState
+import Control.Runner
+import Control.Runner.FPState
+import Control.Runner.MLState
 
 import System.IO
 

@@ -12,9 +12,9 @@
 
 module MLFPStateFwdTests where
 
-import Control.Monad.Runner
-import Control.Monad.Runner.MLState
-import Control.Monad.Runner.MLFPStateFwd
+import Control.Runner
+import Control.Runner.MLState
+import Control.Runner.MLFPStateFwd
 
 test1 :: User '[MLState] (String,String,String,Bool)
 test1 =

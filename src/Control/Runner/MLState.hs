@@ -14,26 +14,17 @@
 -- to use typecasting as a means for deciding type equality.
 --
 
-module Control.Monad.SignalRunner.SignalMLState
+module Control.Runner.MLState
   (
-  Ref, MLState, S(..), 
+  Ref, MLState,
   alloc, (!), (=:=),
-  mlRunner, mlInitialiser, mlFinaliserVal, mlFinaliserExc, mlFinaliserSig, mlTopLevel,
+  mlRunner, mlInitialiser, mlFinaliser, mlTopLevel,
   Typeable
   ) where
 
-import Control.Monad.SignalRunner
+import Control.Runner
 
 import Data.Typeable
-
---
--- Kill signal(s).
---
-data S where
-  RefNotInHeapSignal :: Ref a -> S
-
-instance Show S where
-  show (RefNotInHeapSignal r) = "RefNotInHeapSignal -- " ++ show r
 
 --
 -- Datatypes of natural numbers (for memory addresses).
@@ -46,10 +37,6 @@ instance Eq Nat where
   Z == Z = True
   (S n) == (S m) = n == m
   _ == _ = False
-
-instance Show Nat where
-  show Z = "Z"
-  show (S n) = "S " ++ show n
 
 --
 -- Typed references.
@@ -64,9 +51,6 @@ type Addr = Nat
 data Ref a where
   R :: (Typeable a) => Addr -> Ref a
 
-instance Show (Ref a) where
-  show r = "ref. with address " ++ show (addrOf r)
-
 mkRef :: (Typeable a) => Addr -> Ref a
 mkRef addr = R addr
 
@@ -80,8 +64,11 @@ type Memory = forall a . (Typeable a) => Ref a -> Maybe a
 
 data Heap = H { memory :: Memory, nextAddr :: Addr }
 
-heapSel :: (Typeable a) => Heap -> Ref a -> Maybe a
-heapSel h r = memory h r
+heapSel :: (Typeable a) => Heap -> Ref a -> a
+heapSel h r =
+  case memory h r of
+    Nothing -> error "reference not in the heap"
+    Just x -> x
 
 memUpd :: (Typeable a) => Memory -> Ref a -> a -> Memory
 memUpd mem r x r' =
@@ -100,7 +87,7 @@ heapAlloc h init =
   let r = mkRef (nextAddr h) in 
   (r , H { memory = memUpd (memory h) r init ,
            nextAddr = S (nextAddr h) })
-           
+
 --
 -- Signature of ML-style state operations.
 --
@@ -112,19 +99,19 @@ data MLState :: * -> * where
 --
 -- Generic effects.
 --
-alloc :: (Typeable a,Member MLState sig) => a -> User sig e (Ref a)
-alloc init = tryWithU (focus (performU (Alloc init))) return impossible
+alloc :: (Typeable a,Member MLState sig) => a -> User sig (Ref a)
+alloc init = focus (performU (Alloc init))
 
-(!) :: (Typeable a,Member MLState sig) => Ref a -> User sig e a
-(!) r = tryWithU (focus (performU (Deref r))) return impossible
+(!) :: (Typeable a,Member MLState sig) => Ref a -> User sig a
+(!) r = focus (performU (Deref r))
 
-(=:=) :: (Typeable a,Member MLState sig) => Ref a -> a -> User sig e ()
-(=:=) r x = tryWithU (focus (performU (Assign r x))) return impossible
+(=:=) :: (Typeable a,Member MLState sig) => Ref a -> a -> User sig ()
+(=:=) r x = focus (performU (Assign r x))
 
 --
 -- ML-style memory runner.
 --
-mlCoOps :: MLState a -> Kernel sig Zero S Heap a
+mlCoOps :: MLState a -> Kernel sig Heap a
 mlCoOps (Alloc init) =
   do h <- getEnv;
      (r,h') <- return (heapAlloc h init);
@@ -132,40 +119,29 @@ mlCoOps (Alloc init) =
      return r
 mlCoOps (Deref r)    =
   do h <- getEnv;
-     maybe
-       (kill (RefNotInHeapSignal r))
-       (\ x -> return x)
-       (heapSel h r)
+     return (heapSel h r)
 mlCoOps (Assign r x) =
   do h <- getEnv;
      setEnv (heapUpd h r x)
 
-mlRunner :: Runner '[MLState] sig S Heap
+mlRunner :: Runner '[MLState] sig Heap
 mlRunner = mkRunner mlCoOps
 
 --
 -- Top-Level running of the ML-style memory.
 --
-mlInitialiser :: User sig Zero Heap
+mlInitialiser :: User sig Heap
 mlInitialiser = return (H { memory = \ _ -> Nothing , nextAddr = Z })
 
-mlFinaliserVal :: a -> Heap -> User sig Zero a
-mlFinaliserVal x _ = return x
+mlFinaliser :: a -> Heap -> User sig a
+mlFinaliser x _ = return x
 
-mlFinaliserExc :: Zero -> Heap -> User sig Zero a
-mlFinaliserExc e _ = impossible e
-
-mlFinaliserSig :: S -> User sig Zero a
-mlFinaliserSig s = error ("signal reached top level (" ++ show s ++ ")")
-
-mlTopLevel :: User '[MLState] Zero a -> a
+mlTopLevel :: User '[MLState] a -> a
 mlTopLevel m =
   pureTopLevel (
     run
       mlRunner
       mlInitialiser
       m
-      mlFinaliserVal
-      mlFinaliserExc
-      mlFinaliserSig
+      mlFinaliser
   )

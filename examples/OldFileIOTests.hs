@@ -8,8 +8,8 @@
 
 module OldFileIOTests where
 
-import Control.Monad.Runner
-import Control.Monad.Runner.OldFileIO
+import Control.Runner
+import Control.Runner.OldFileIO
 
 import System.IO
 

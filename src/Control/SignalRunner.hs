@@ -12,7 +12,7 @@
 -- Effectful runners (with support for exceptions and kill signals).
 --
 
-module Control.Monad.SignalRunner (
+module Control.SignalRunner (
   User, Kernel,
   performU, performK,
   raiseU, raiseK, kill, 

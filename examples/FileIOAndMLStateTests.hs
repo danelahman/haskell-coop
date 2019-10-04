@@ -6,10 +6,10 @@
 
 module FileIOAndMLStateTests where
 
-import Control.Monad.Runner
-import Control.Monad.Runner.FileIO hiding (withFile)
-import Control.Monad.Runner.FileIOAndMLState
-import Control.Monad.Runner.MLState hiding (mlTopLevel)
+import Control.Runner
+import Control.Runner.FileIO hiding (withFile)
+import Control.Runner.FileIOAndMLState
+import Control.Runner.MLState hiding (mlTopLevel)
 
 import Data.Typeable
 

@@ -8,8 +8,8 @@
 
 module FileIOTests where
 
-import Control.Monad.Runner
-import Control.Monad.Runner.FileIO
+import Control.Runner
+import Control.Runner.FileIO
 
 import System.IO hiding (withFile)
 

@@ -10,7 +10,7 @@
 
 module TwoLevelStateTest where
 
-import Control.Monad.Runner
+import Control.Runner
 
 data BigState :: * -> * where
   Get1 :: BigState Int

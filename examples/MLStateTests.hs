@@ -8,8 +8,8 @@
 
 module MLStateTests where
 
-import Control.Monad.Runner
-import Control.Monad.Runner.MLState
+import Control.Runner
+import Control.Runner.MLState
 
 test1 :: Int -> Int -> User '[MLState] (Int,Int)
 test1 x y =

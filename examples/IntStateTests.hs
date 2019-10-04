@@ -6,8 +6,8 @@
 
 module IntStateTests where
 
-import Control.Monad.Runner
-import Control.Monad.Runner.IntState
+import Control.Runner
+import Control.Runner.IntState
 
 one = AZ
 two = AS AZ

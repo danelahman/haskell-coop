@@ -14,8 +14,8 @@
 
 module SignalMLStateTests where
 
-import Control.Monad.SignalRunner
-import Control.Monad.SignalRunner.SignalMLState
+import Control.SignalRunner
+import Control.SignalRunner.SignalMLState
 
 test1 :: Int -> Int -> User '[MLState] Zero (Int,Int)
 test1 x y =

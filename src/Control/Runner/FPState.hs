@@ -7,12 +7,12 @@
 -- Footprint-indexed global state implemented using runners.
 --
 
-module Control.Monad.Runner.FPState (
+module Control.Runner.FPState (
   Nat(..), MemShape(..), Memory(..), Addr(..),
   State, get, put, fpRunner, fpTopLevel
   ) where
 
-import Control.Monad.Runner
+import Control.Runner
 import System.IO
 
 --

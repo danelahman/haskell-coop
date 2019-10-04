@@ -6,14 +6,14 @@
 -- Combination of the runners for File IO and ML-style state.
 --
 
-module Control.Monad.Runner.FileIOAndMLState
+module Control.Runner.FileIOAndMLState
   (
   withFile, ioMltopLevel
   ) where
 
-import Control.Monad.Runner
-import Control.Monad.Runner.FileIO hiding (withFile)
-import Control.Monad.Runner.MLState hiding (mlTopLevel)
+import Control.Runner
+import Control.Runner.FileIO hiding (withFile)
+import Control.Runner.MLState hiding (mlTopLevel)
 
 import System.IO hiding (withFile)
 

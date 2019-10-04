@@ -7,8 +7,8 @@
 
 module FPStateTests where
 
-import Control.Monad.Runner
-import Control.Monad.Runner.FPState
+import Control.Runner
+import Control.Runner.FPState
 
 test1 :: User '[State (ShC Int (ShC String ShE))] Int
 test1 =

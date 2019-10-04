@@ -14,8 +14,8 @@
 
 module ExcMLStateTests where
 
-import Control.Monad.SignalRunner
-import Control.Monad.SignalRunner.ExcMLState
+import Control.SignalRunner
+import Control.SignalRunner.ExcMLState
 
 test1 :: Int -> Int -> User '[MLState] E (Int,Int)
 test1 x y =

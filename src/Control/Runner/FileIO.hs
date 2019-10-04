@@ -7,7 +7,7 @@
 -- Experiments with File IO using a variety of runners.
 --
 
-module Control.Monad.Runner.FileIO (
+module Control.Runner.FileIO (
   FileIO, fOpenOS, fCloseOS, fReadOS, fWriteOS,
   File, fRead, fWrite,
   fioRunner, fhRunner, fcRunner,
@@ -16,7 +16,7 @@ module Control.Monad.Runner.FileIO (
   withFile
   ) where
 
-import Control.Monad.Runner
+import Control.Runner
 import System.IO hiding (withFile)
 
 import qualified Data.ByteString.Char8 as B

@@ -8,13 +8,13 @@
 -- Integer-valued state with scoped allocation implemented using runners.
 --
 
-module Control.Monad.Runner.IntState (
+module Control.Runner.IntState (
   Nat(..), Addr(..),
   State, get, put, 
   Memory, withNewRef, runSt
   ) where
 
-import Control.Monad.Runner
+import Control.Runner
 import System.IO
 
 --

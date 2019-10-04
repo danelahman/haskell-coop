@@ -6,9 +6,9 @@
 -- Experiments with File IO using a variety of runners.
 --
 
-module Control.Monad.Runner.OldFileIO where
+module Control.Runner.OldFileIO where
 
-import Control.Monad.Runner
+import Control.Runner
 import System.IO
 
 import qualified Data.ByteString.Char8 as B

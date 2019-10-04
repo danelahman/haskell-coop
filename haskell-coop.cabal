@@ -14,19 +14,19 @@ homepage:            https://github.com/danelahman/haskell-coop
 
 library
   exposed-modules:
-    Control.Monad.Runner,
-    Control.Monad.SignalRunner,
-    Control.Monad.Runner.MLFPStateFwd,
-    Control.Monad.Runner.FileIO,
-    Control.Monad.Runner.FileIOAndMLState,
-    Control.Monad.Runner.OldFileIO,
-    Control.Monad.Runner.FPState,
-    Control.Monad.Runner.MLState,
-    Control.Monad.Runner.Ambients,
-    Control.Monad.Runner.MLFPState,
-    Control.Monad.Runner.IntState,
-    Control.Monad.SignalRunner.ExcMLState,
-    Control.Monad.SignalRunner.SignalMLState
+    Control.Runner,
+    Control.SignalRunner,
+    Control.Runner.MLFPStateFwd,
+    Control.Runner.FileIO,
+    Control.Runner.FileIOAndMLState,
+    Control.Runner.OldFileIO,
+    Control.Runner.FPState,
+    Control.Runner.MLState,
+    Control.Runner.Ambients,
+    Control.Runner.MLFPState,
+    Control.Runner.IntState,
+    Control.SignalRunner.ExcMLState,
+    Control.SignalRunner.SignalMLState
   default-extensions:
     DataKinds,
     DeriveFunctor,
@@ -64,19 +64,19 @@ library haskell-coop-examples
     SignalMLStateTests
     TwoLevelStateTest
   other-modules:
-    Control.Monad.Runner,
-    Control.Monad.SignalRunner,
-    Control.Monad.Runner.MLFPStateFwd,
-    Control.Monad.Runner.FileIO,
-    Control.Monad.Runner.FileIOAndMLState,
-    Control.Monad.Runner.OldFileIO,
-    Control.Monad.Runner.FPState,
-    Control.Monad.Runner.MLState,
-    Control.Monad.Runner.Ambients,
-    Control.Monad.Runner.MLFPState,
-    Control.Monad.Runner.IntState,
-    Control.Monad.SignalRunner.ExcMLState,
-    Control.Monad.SignalRunner.SignalMLState
+    Control.Runner,
+    Control.SignalRunner,
+    Control.Runner.MLFPStateFwd,
+    Control.Runner.FileIO,
+    Control.Runner.FileIOAndMLState,
+    Control.Runner.OldFileIO,
+    Control.Runner.FPState,
+    Control.Runner.MLState,
+    Control.Runner.Ambients,
+    Control.Runner.MLFPState,
+    Control.Runner.IntState,
+    Control.SignalRunner.ExcMLState,
+    Control.SignalRunner.SignalMLState
   default-extensions:
     DataKinds,
     DeriveFunctor,
