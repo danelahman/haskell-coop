@@ -46,24 +46,16 @@ instance Eq Nat where
 -- explicit type casting in `memUpd` to decide
 -- the equality of two typed references.
 --
--- As a standard move, each reference stores its
--- initial value to be able to return a default
--- value when the given reference happens to not
--- be in the given heap.
---
 type Addr = Nat
 
 data Ref a where
-  R :: (Typeable a) => Addr -> a -> Ref a
+  R :: (Typeable a) => Addr -> Ref a
 
-mkRef :: (Typeable a) => Addr -> a -> Ref a
-mkRef addr x = R addr x
+mkRef :: (Typeable a) => Addr -> Ref a
+mkRef addr = R addr
 
 addrOf :: Ref a -> Addr
-addrOf (R r _) = r
-
-initial :: Ref a -> a
-initial (R _ x) = x
+addrOf (R r) = r
 
 --
 -- Type of heaps, with associated select, update, and alloc functions.
@@ -75,7 +67,7 @@ data Heap = H { memory :: Memory, nextAddr :: Addr }
 heapSel :: (Typeable a) => Heap -> Ref a -> a
 heapSel h r =
   case memory h r of
-    Nothing -> initial r
+    Nothing -> error "reference not in the heap"
     Just x -> x
 
 memUpd :: (Typeable a) => Memory -> Ref a -> a -> Memory
@@ -92,7 +84,7 @@ heapUpd h r x = h { memory = memUpd (memory h) r x }
 
 heapAlloc :: (Typeable a) => Heap -> a -> (Ref a,Heap)
 heapAlloc h init =
-  let r = mkRef (nextAddr h) init in 
+  let r = mkRef (nextAddr h) in 
   (r , H { memory = memUpd (memory h) r init ,
            nextAddr = S (nextAddr h) })
 
