@@ -1,4 +1,4 @@
-# Revision history for Comodel
+# Revision history for haskell-coop
 
 ## 0.1.0.0
 
