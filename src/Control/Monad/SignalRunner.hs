@@ -240,14 +240,15 @@ execK (U m) f g =
 --
 -- A runner is simply a list of co-operations, where the first
 -- argument of CoOps requires a co-operation for each operation
--- in the given effect `eff :: * -> *`, e.g., for `FRead` and `FWrite`.
+-- in the given effect `eff :: * -> *`, e.g., for `FRead`.
 --
 data Runner sig sig' s c where
   Empty :: Runner '[] sig' s c
   CoOps :: (forall b . eff b -> Kernel sig' Zero s c b)
         -> Runner sig sig' s c-> Runner (eff ': sig) sig' s c
 
-mkRunner :: (forall b . eff b -> Kernel sig Zero s c b) -> Runner '[eff] sig s c
+mkRunner :: (forall b . eff b -> Kernel sig Zero s c b)
+         -> Runner '[eff] sig s c
 mkRunner coops = CoOps coops Empty
 
 --
