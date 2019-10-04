@@ -7,7 +7,7 @@
 -- Tests for ambient values and ambient functions implemented as a runner in Ambients.
 --
 
-module AmbientTests where
+module AmbientsTests where
 
 import Control.Monad.Runner
 import Control.Monad.Runner.Ambients
