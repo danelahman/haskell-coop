@@ -75,25 +75,25 @@ instance Monad (Kernel sig c) where
 -- various kinds of state) to work conveniently. In most cases
 -- focussing is limited to defining derived generic effects.
 --
-performU :: eff r -> User '[eff] r
+performU :: eff a -> User '[eff] a
 performU op = UC (send op)
 
 --
 -- Generic user perform function used internally in this module.
 --
-genPerformU :: Member eff sig => eff r -> User sig r
+genPerformU :: Member eff sig => eff a -> User sig a
 genPerformU op = UC (send op)
 
 --
 -- Performing kernel operations while focussed on a single effect.
 --
-performK :: eff r -> Kernel '[eff] c r
+performK :: eff a -> Kernel '[eff] c a
 performK op = KC (\ c -> do x <- send op; return (x,c))
 
 --
 -- Generic kernel perform function used internally in this module.
 --
-genPerformK :: Member eff sig => eff r -> Kernel sig c r
+genPerformK :: Member eff sig => eff a -> Kernel sig c a
 genPerformK op = KC (\ c -> do x <- send op; return (x,c))
 
 --
