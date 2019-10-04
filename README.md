@@ -1,1 +1,1 @@
-# A library for comodel-oriented programming in Haskell
+# A Haskell library for programming with runners
