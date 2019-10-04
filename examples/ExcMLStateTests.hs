@@ -54,3 +54,16 @@ test8 =
   let (r,r') = mlTopLevel (test6 4 2) in
   mlTopLevel (test4 r r')
     -- expected result "Exception: exception reached top level (RefNotInHeapException -- ref. with address S Z)"
+
+test10 :: Ref Int -> Ref Int -> User '[MLState] E (Int,Int)
+test10 r r' =
+  do x' <- tryWithU ((!) r)
+             return
+             (\ e -> error ("intercepted an exception (" ++ show e ++ ")"));
+     y' <- (!) r';
+     return (x',y')
+
+test11 =
+  let (r,r') = mlTopLevel (test3 4 2) in
+  mlTopLevel (test10 r r')
+    -- expected result "Exception: intercepted an exception (RefNotInHeapException -- ref. with address Z)"
