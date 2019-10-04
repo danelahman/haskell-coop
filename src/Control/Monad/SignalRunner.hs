@@ -32,34 +32,61 @@ import Control.Monad.Freer.Internal hiding (run)
 import Control.Monad.Except
 import Control.Monad.State
 
+{-
 --
 -- Exceptional signatures and a their conversion into
 -- ordinary Freer monad signatures using `Either`.
 --
 type ExcSig = [((* -> *),*)]
 
-newtype EffExcToEff (eff :: * -> *) (exc :: *) (a :: *) =
-  ExcEff (eff (Either exc a))
-  
+--newtype EffExcToEff (eff :: * -> *) (exc :: *) (a :: *) =
+--  ExcEff (eff (Either exc a))
+
+type EffExcToEff (eff :: * -> *) (exc :: *) (a :: *) =
+  eff (Either exc a)
+
 type family ExcSigToSig (sig :: ExcSig) :: [* -> *] where
   ExcSigToSig '[] = '[]
   ExcSigToSig ('(eff,exc) ': sig) =
     (EffExcToEff eff exc) ': ExcSigToSig sig
+-}
 
 --
 -- User monad modelling user computations waiting to be run
--- by some enveloping runner. We define this monad on top of
--- the Freer monad. Here, `sig` is a signature of pairs of 
--- an effect and an associated exception (of type `ExcSig`).
+-- by some enveloping runner. We define this monad on top of the
+-- Freer monad, with `sig` a signature of effects of type `[* -> *]`.
 --
 -- The type `User sig a` captures the typing judgement
 --
 --   Gamma  |-^sig  M  :  a ! e
 --
+--
 newtype User sig e a =
-  UC (ExceptT e (Eff (ExcSigToSig sig)) a)
-    deriving (Functor,Applicative,Monad)
-   
+  U (Eff sig (Either a e))
+
+fmapE :: (a -> b) -> Either a e -> Either b e
+fmapE f (Left x) = Left (f x)
+fmapE f (Right e) = Right e
+
+instance Functor (User sig e) where
+  fmap f (U m) = U (fmap (fmapE f) m)
+
+appE :: Either (a -> b) e -> Either a e -> Either b e
+appE (Left f) (Left x) = Left (f x)
+appE (Left f) (Right e) = Right e
+appE (Right e) _ = Right e
+
+bindU :: User sig e a -> (a -> User sig e b) -> User sig e b
+bindU m f = tryWithU m f (\ e -> raiseU e)
+
+instance Applicative (User sig e) where
+  pure x = U (pure (Left x))
+  f <*> m = bindU f (\ g -> bindU m (\ x -> pure (g x)))
+
+instance Monad (User sig e) where
+  return x = pure x
+  m >>= f = bindU m f
+
 --
 -- Kernel monad modelling kernel computations that can trigger
 -- effects in `sig` and access runtime state of type `c`,
@@ -71,8 +98,24 @@ newtype User sig e a =
 --   Gamma  |-^sig  K  :  a ! e !! s @ c
 --
 newtype Kernel sig e s c a =
-  KC (ExceptT e (StateT c (ExceptT s (Eff (ExcSigToSig sig)))) a)
-    deriving (Functor,Applicative,Monad)
+  K (c -> (Eff sig (Either (Either a e,c) s)))
+
+instance Functor (Kernel sig e s c) where
+  fmap f (K k) =
+    K (\ c -> fmap (fmapE (\ (xe,c) -> (fmapE f xe,c))) (k c))
+
+bindK :: Kernel sig e s c a
+      -> (a -> Kernel sig e s c b)
+      -> Kernel sig e s c b
+bindK k f = tryWithK k f (\ e -> raiseK e)
+
+instance Applicative (Kernel sig e s c) where
+  pure x = K (\ c -> pure (Left (Left x,c)))
+  f <*> k = bindK f (\ g -> bindK k (\ x -> pure (g x)))
+
+instance Monad (Kernel sig e s c) where
+  return x = pure x
+  k >>= f = bindK k f
 
 --
 -- Performing user operations while focussed on a single effect.
@@ -83,48 +126,107 @@ newtype Kernel sig e s c a =
 -- various kinds of state) to work conveniently. In most cases
 -- focussing is limited to defining derived generic effects.
 --
-performU :: eff (Either exc a) -> User '[ '(eff,exc) ] e a
-performU op = UC (lift (send (ExcEff op)))
+performU :: eff a -> User '[eff] () a
+performU op = U (do x <- send op; return (Left x))
 
 --
 -- Generic user perform function used internally in this module.
 --
-genPerformU :: Member (EffExcToEff eff exc) (ExcSigToSig sig)
-            => eff (Either exc a)
-            -> User sig e a
-genPerformU op = UC (lift (send (ExcEff op)))
+genPerformU :: Member eff sig => eff a -> User sig () a
+genPerformU op = U (do x <- send op; return (Left x))
 
+--
+-- Raising an exception in user computations.
+--
+raiseU :: e -> User sig e a
+raiseU e = U (return (Right e))
 --
 -- Performing kernel operations while focussed on a single effect.
 --
-performK :: eff (Either exc a) -> Kernel '[ '(eff,exc) ] e s c a
-performK op = KC (lift (lift (lift (send (ExcEff op)))))
+performK :: eff a -> Kernel '[eff] () s c a
+performK op = K (\ c -> (do x <- send op; return (Left (Left x,c))))
 
 --
 -- Generic kernel perform function used internally in this module.
 --
-genPerformK :: Member (EffExcToEff eff exc) (ExcSigToSig sig)
-            => eff (Either exc a)
-            -> Kernel sig e s c a
-genPerformK op = KC (lift (lift (lift (send (ExcEff op)))))
+genPerformK :: Member eff sig => eff a -> Kernel sig () s c a
+genPerformK op = K (\ c -> (do x <- send op; return (Left (Left x,c))))
+
+--
+-- Raising an exception in kernel computations.
+--
+raiseK :: e -> Kernel sig e s c a
+raiseK e = K (\ c -> return (Left (Right e,c)))
+
+--
+-- Raising a kill signal in kernel computations.
+--
+kill :: s -> Kernel sig e s c a
+kill s = K (\ c -> return (Right s))
 
 --
 -- State-access operations for the kernel monad.
 --
 getEnv :: Kernel sig e s c c
-getEnv = KC (lift (get))
+getEnv = K (\ c -> return (Left (Left c,c)))
 
 setEnv :: c -> Kernel sig e s c ()
-setEnv c = KC (lift (put c))
+setEnv c' = K (\ c -> return (Left (Left (),c')))
 
-{-
+--
+-- Exceptional syntax for user computations.
+--
+tryWithU :: User sig e a
+         -> (a -> User sig e' b)
+         -> (e -> User sig e' b)
+         -> User sig e' b
+tryWithU (U m) f g =
+  U (do ex <- m;
+        either
+          (\ x -> let (U m') = f x in m')
+          (\ e -> let (U m') = g e in m')
+          ex)
+
+--
+-- Exceptional syntax for kernel computations.
+--
+tryWithK :: Kernel sig e s c a
+         -> (a -> Kernel sig e' s c b)
+         -> (e -> Kernel sig e' s c b)
+         -> Kernel sig e' s c b
+tryWithK (K k) f g =
+  K (\ c ->
+    do xs <- k c;
+       either
+         (\ (xe,c') ->
+           either
+             (\ x -> let (K f') = f x in f' c')
+             (\ e -> let (K g') = g e in g' c')
+             xe)
+         (\ s -> return (Right s))
+         xs)
+
 --
 -- Executing a kernel computation inside user computations.
 --
-execU :: Kernel sig c a -> c -> (a -> c -> User sig b) -> User sig b
-execU (KC k) c f =
-  UC (do (x,c') <- k c; let (UC m) = f x c' in m)
+execU :: Kernel sig e s c a
+      -> c
+      -> (a -> c -> User sig e' b)
+      -> (e -> c -> User sig e' b)
+      -> (s -> User sig e' b)
+      -> User sig e' b
+execU (K k) c f g h =
+  U (do xs <- k c;
+        either
+          (\ (xe,c') ->
+            either
+              (\ x -> let (U m) = f x c' in m)
+              (\ e -> let (U m) = g e c' in m)
+              xe)
+          (\ s -> let (U m) = h s in m)
+          xs)
 
+{-
 --
 -- Executing a user computation inside kernel computations.
 --
