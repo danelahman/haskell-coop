@@ -5,6 +5,7 @@
 -- Example tests for the signalling comodels in SigComodel.
 --
 
+{-
 module SigTests where
 
 import Control.Monad.SigComodel
@@ -210,3 +211,4 @@ test12 =
     )
 
 test13 = runIO test12
+-}

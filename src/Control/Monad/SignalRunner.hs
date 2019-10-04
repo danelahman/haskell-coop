@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
@@ -7,18 +8,18 @@
 {-# LANGUAGE TypeOperators #-}
 
 --
--- Effectful runners (without support for exceptions and kill signals).
+-- Effectful runners (with support for exceptions and kill signals).
 --
 
-module Control.Monad.Runner (
-  User, Kernel,
-  performU, performK,
-  getEnv, setEnv,
-  Runner, mkRunner, emptyRunner, unionRunners, pairRunners,
-  run, execU, execK,
-  topLevel, pureTopLevel, ioTopLevel,
-  embedU, embedK, embedRunner, extendRunner, fwdRunner, focus,
-  Member
+module Control.Monad.SignalRunner (
+--  User, Kernel,
+--  performU, performK,
+--  getEnv, setEnv,
+--  Runner, mkRunner, emptyRunner, unionRunners, pairRunners,
+--  run, execU, execK,
+--  topLevel, pureTopLevel, ioTopLevel,
+--  embedU, embedK, embedRunner, extendRunner, fwdRunner, focus,
+--  Member
   ) where
 
 --
@@ -28,43 +29,50 @@ module Control.Monad.Runner (
 --
 import Control.Monad.Freer.Internal hiding (run)
 
+import Control.Monad.Except
+import Control.Monad.State
+
+--
+-- Exceptional signatures and a their conversion into
+-- ordinary Freer monad signatures using `Either`.
+--
+type ExcSig = [((* -> *),*)]
+
+newtype EffExcToEff (eff :: * -> *) (exc :: *) (a :: *) =
+  ExcEff (eff (Either exc a))
+  
+type family ExcSigToSig (sig :: ExcSig) :: [* -> *] where
+  ExcSigToSig '[] = '[]
+  ExcSigToSig ('(eff,exc) ': sig) =
+    (EffExcToEff eff exc) ': ExcSigToSig sig
+
 --
 -- User monad modelling user computations waiting to be run
 -- by some enveloping runner. We define this monad on top of
--- the Freer monad, and analogously `sig` is a signature of
--- effects, given by a list of type-functions `* -> *`.
+-- the Freer monad. Here, `sig` is a signature of pairs of 
+-- an effect and an associated exception (of type `ExcSig`).
 --
 -- The type `User sig a` captures the typing judgement
 --
---   Gamma  |-^sig  M  :  a
+--   Gamma  |-^sig  M  :  a ! e
 --
-newtype User sig a =
-  UC (Eff sig a) deriving (Functor,Applicative,Monad)
-
+newtype User sig e a =
+  UC (ExceptT e (Eff (ExcSigToSig sig)) a)
+    deriving (Functor,Applicative,Monad)
+   
 --
 -- Kernel monad modelling kernel computations that can trigger
--- effects in `sig` and access runtime state of type `c`.
+-- effects in `sig` and access runtime state of type `c`,
+-- and raise exceptions in `e` and kill signals in `s`.
 -- We use kernel computations to implement co-operations.
 --
--- The type `Kernel sig c a` captures the typing judgement
+-- The type `Kernel sig e s c a` captures the typing judgement
 --
---   Gamma  |-^sig  K  :  a @ c
+--   Gamma  |-^sig  K  :  a ! e !! s @ c
 --
-newtype Kernel sig c a =
-  KC (c -> Eff sig (a,c)) deriving (Functor)
-
-instance Applicative (Kernel sig c) where
-  pure v = KC (\ c -> return (v,c))
-  (KC f) <*> (KC k) =
-    KC (\ c -> do (g,c') <- f c;
-                  (x,c'') <- k c';
-                  return (g x,c''))
-
-instance Monad (Kernel sig c) where
-  return x = KC (\ c -> return (x,c))
-  (KC k) >>= f =
-    KC (\ c -> do (x,c') <- k c;
-                  let (KC l) = f x in l c')
+newtype Kernel sig e s c a =
+  KC (ExceptT e (StateT c (ExceptT s (Eff (ExcSigToSig sig)))) a)
+    deriving (Functor,Applicative,Monad)
 
 --
 -- Performing user operations while focussed on a single effect.
@@ -75,36 +83,41 @@ instance Monad (Kernel sig c) where
 -- various kinds of state) to work conveniently. In most cases
 -- focussing is limited to defining derived generic effects.
 --
-performU :: eff r -> User '[eff] r
-performU op = UC (send op)
+performU :: eff (Either exc a) -> User '[ '(eff,exc) ] e a
+performU op = UC (lift (send (ExcEff op)))
 
 --
 -- Generic user perform function used internally in this module.
 --
-genPerformU :: Member eff sig => eff r -> User sig r
-genPerformU op = UC (send op)
+genPerformU :: Member (EffExcToEff eff exc) (ExcSigToSig sig)
+            => eff (Either exc a)
+            -> User sig e a
+genPerformU op = UC (lift (send (ExcEff op)))
 
 --
 -- Performing kernel operations while focussed on a single effect.
 --
-performK :: eff r -> Kernel '[eff] c r
-performK op = KC (\ c -> do x <- send op; return (x,c))
+performK :: eff (Either exc a) -> Kernel '[ '(eff,exc) ] e s c a
+performK op = KC (lift (lift (lift (send (ExcEff op)))))
 
 --
 -- Generic kernel perform function used internally in this module.
 --
-genPerformK :: Member eff sig => eff r -> Kernel sig c r
-genPerformK op = KC (\ c -> do x <- send op; return (x,c))
+genPerformK :: Member (EffExcToEff eff exc) (ExcSigToSig sig)
+            => eff (Either exc a)
+            -> Kernel sig e s c a
+genPerformK op = KC (lift (lift (lift (send (ExcEff op)))))
 
 --
 -- State-access operations for the kernel monad.
 --
-getEnv :: Kernel sig c c
-getEnv = KC (\ c -> return (c,c))
+getEnv :: Kernel sig e s c c
+getEnv = KC (lift (get))
 
-setEnv :: c -> Kernel sig c ()
-setEnv c' = KC (\ c -> return ((),c'))
+setEnv :: c -> Kernel sig e s c ()
+setEnv c = KC (lift (put c))
 
+{-
 --
 -- Executing a kernel computation inside user computations.
 --
@@ -259,3 +272,4 @@ fwdRunner = CoOps genPerformK Empty
 focus :: Member eff sig => User '[eff] a -> User sig a
 focus m =
   run fwdRunner (return ()) m (\ x () -> return x)
+-}
