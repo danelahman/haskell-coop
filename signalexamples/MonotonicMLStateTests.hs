@@ -1,11 +1,11 @@
 {-# LANGUAGE DataKinds #-}
 
 --
--- Tests for the monotonic state runner in MonotonicMLState.
+-- Tests for the monotonic state runner in `MonotonicMLState`.
 --
--- In this example, the runner might raise a kill signal
+-- In these examples, the runner might raise a kill signal
 -- (i)  if one tries to dereference a non-existent memory location;
---      this is inherited from the ML-state runner in SignalMLState, or
+--      this is inherited from the runner in `SignalMLState`, or
 -- (ii) if one tries to assign while violating monotonicity.
 --
 

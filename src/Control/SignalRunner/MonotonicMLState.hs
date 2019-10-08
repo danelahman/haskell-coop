@@ -9,14 +9,20 @@
 {-# LANGUAGE ImpredicativeTypes #-} -- needed for storing preorders in memory
 
 --
--- A runner that enforces monotonicity upon an ML-style state from
--- SignalMLState. It does so by "slotting between" the user code and
--- the ML-style state runner, using the latter to manage allocation, 
--- dereferencing, and assignment of references, while itself keeping
--- track which preorders are associated with which references.
+-- A runner that enforces monotonicity upon an ML-style state
+-- from `SignalMLState`. It does so by "slotting between" the 
+-- user code and the ML-style state runner, using the latter 
+-- to manage allocation, dereferencing, and assignment of
+-- references, while itself keeping track of monotonicity.
 --
--- The runner raises a kill signal if an assignment to a reference
--- is about to violate the preorder associated with that reference.
+-- Monotonicity is realised similarly to the F* language,
+-- by associating a preorder with each memory location,
+-- and ensuring that any assignments to a reference adhere
+-- to a given preorder. While in F* this is done statically,
+-- here we use runtime verification to achieve monotonicity.
+--
+-- The runner raises a signal if an assignment to a reference
+-- is about to violate the preorder associated with it.
 --
 
 module Control.SignalRunner.MonotonicMLState
@@ -50,7 +56,7 @@ instance Show MonS where
 type Preorder a = a -> a -> Bool
 
 --
--- Type of memory storing monotonicity preorders for references.
+-- Type of memory storing monotonicity preorders for ML-style references.
 --
 newtype MonMemory = M { memory :: forall a . (Typeable a) => Ref a -> Maybe (Preorder a)}
 
@@ -68,7 +74,7 @@ memUpd m r p =
                   else memory m r') }
 
 --
--- Generic effects.
+-- Generic effects (we are hiding the generic effects of `SignalMLState`).
 --
 alloc :: (Typeable a,Member MonMLState sig) => a -> Preorder a -> User sig e (Ref a)
 alloc init rel = tryWithU (focus (performU (MonAlloc init rel))) return impossible
