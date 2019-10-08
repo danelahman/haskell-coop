@@ -9,7 +9,7 @@
 -- (ii) if one tries to assign while violating monotonicity.
 --
 
-module SignalMLStateTests where
+module MonotonicMLStateTests where
 
 import Control.SignalRunner
 import Control.SignalRunner.MonotonicMLState
