@@ -30,10 +30,12 @@ import Data.Typeable
 -- Exception(s).
 --
 data E where
-  RefNotInHeapException :: Ref a -> E
+  RefNotInHeapInDerefException :: Ref a -> E
+  RefNotInHeapInAssignException :: Ref a -> E
 
 instance Show E where
-  show (RefNotInHeapException r) = "RefNotInHeapException -- " ++ show r
+  show (RefNotInHeapInDerefException r) = "RefNotInHeapInDerefException -- " ++ show r
+  show (RefNotInHeapInAssignException r) = "RefNotInHeapInAssignException -- " ++ show r
 
 --
 -- Datatypes of natural numbers (for memory addresses).
@@ -54,10 +56,8 @@ instance Show Nat where
 --
 -- Typed references.
 --
--- We restrict ourselves to references storing
--- `Typeable` values so as to be able to use
--- explicit type casting in `memUpd` to decide
--- the equality of two typed references.
+-- We restrict ourselves to references storing `Typeable` values so as to be able to use
+-- explicit type casting in `memUpd` to decide the equality of two typed references.
 --
 type Addr = Nat
 
@@ -104,13 +104,18 @@ heapAlloc h init =
 --
 -- Signature of ML-style state operations.
 --
+-- `Deref` and Assign` to a non-existent reference raises an exception.
+--
 data MLState :: * -> * where
   Alloc  :: (Typeable a) => a -> MLState (Ref a)
   Deref  :: (Typeable a) => Ref a -> MLState (Either a E)
-  Assign :: (Typeable a) => Ref a -> a -> MLState ()
+  Assign :: (Typeable a) => Ref a -> a -> MLState (Either () E)
 
 --
 -- Generic effects.
+--
+-- Dereferencing and assignment turn the possible exception values
+-- into natively implemented exceptions with `raiseU`.
 --
 alloc :: (Typeable a,Member MLState sig) => a -> User sig e (Ref a)
 alloc init = tryWithU (focus (performU (Alloc init))) return impossible
@@ -120,8 +125,10 @@ alloc init = tryWithU (focus (performU (Alloc init))) return impossible
           (either return (\ e -> raiseU e))
           impossible
 
-(=:=) :: (Typeable a,Member MLState sig) => Ref a -> a -> User sig e ()
-(=:=) r x = tryWithU (focus (performU (Assign r x))) return impossible
+(=:=) :: (Typeable a,Member MLState sig) => Ref a -> a -> User sig E ()
+(=:=) r x = tryWithU (focus (performU (Assign r x)))
+              (either return (\ e -> raiseU e))
+              impossible
 
 --
 -- ML-style memory runner.
@@ -135,12 +142,15 @@ mlCoOps (Alloc init) =
 mlCoOps (Deref r)    =
   do h <- getEnv;
      maybe
-       (return (Right (RefNotInHeapException r)))
+       (return (Right (RefNotInHeapInDerefException r)))
        (\ x -> return (Left x))
        (heapSel h r)
 mlCoOps (Assign r x) =
   do h <- getEnv;
-     setEnv (heapUpd h r x)
+     maybe
+       (return (Right (RefNotInHeapInAssignException r)))
+       (\ _ -> do setEnv (heapUpd h r x); return (Left ()))
+       (heapSel h r)
 
 mlRunner :: Runner '[MLState] sig Zero Heap
 mlRunner = mkRunner mlCoOps

@@ -42,7 +42,7 @@ test4 r r' =
 test5 =
   let (r,r') = mlTopLevel (test3 4 2) in
   mlTopLevel (test4 r r')
-    -- expected result "Exception: exception reached top level (RefNotInHeapException -- ref. with address Z)"
+    -- expected result "Exception: exception reached top level (RefNotInHeapInDerefException -- ref. with address Z)"
 
 test6 :: Int -> Int -> User '[MLState] E (Ref Int,Ref Int)
 test6 x y =
@@ -50,20 +50,36 @@ test6 x y =
      r' <- alloc y;
      return (r',r)
 
-test8 =
+test7 =
   let (r,r') = mlTopLevel (test6 4 2) in
   mlTopLevel (test4 r r')
-    -- expected result "Exception: exception reached top level (RefNotInHeapException -- ref. with address S Z)"
+    -- expected result "Exception: exception reached top level (RefNotInHeapInDerefException -- ref. with address S Z)"
 
-test10 :: Ref Int -> Ref Int -> User '[MLState] E (Int,Int)
-test10 r r' =
+test8 :: Ref Int -> Ref Int -> User '[MLState] E (Int,Int)
+test8 r r' =
   do x' <- tryWithU ((!) r)
              return
              (\ e -> error ("intercepted an exception (" ++ show e ++ ")"));
      y' <- (!) r';
      return (x',y')
 
+test9 =
+  let (r,r') = mlTopLevel (test3 4 2) in
+  mlTopLevel (test8 r r')
+    -- expected result "Exception: intercepted an exception (RefNotInHeapInDerefException -- ref. with address Z)"
+
+test10 :: Ref Int -> Ref Int -> Int -> Int -> User '[MLState] E (Int,Int)
+test10 r r' x y =
+  do r =:= x ;
+     r' =:= y;
+     return (x,y)
+
 test11 =
   let (r,r') = mlTopLevel (test3 4 2) in
-  mlTopLevel (test10 r r')
-    -- expected result "Exception: intercepted an exception (RefNotInHeapException -- ref. with address Z)"
+  mlTopLevel (test10 r r' 2 4)
+    -- expected result "Exception: exception reached top level (RefNotInHeapInAssignException -- ref. with address Z)"
+
+test12 =
+  let (r,r') = mlTopLevel (test6 4 2) in
+  mlTopLevel (test10 r r' 2 4)
+    -- expected result "Exception: exception reached top level (RefNotInHeapInAssignException -- ref. with address S Z)"

@@ -42,7 +42,7 @@ test4 r r' =
 test5 =
   let (r,r') = mlTopLevel (test3 4 2) in
   mlTopLevel (test4 r r')
-    -- expected result "Exception: signal reached top level (RefNotInHeapSignal -- ref. with address Z)"
+    -- expected result "Exception: signal reached top level (RefNotInHeapInDerefSignal -- ref. with address Z)"
 
 test6 :: Int -> Int -> User '[MLState] Zero (Ref Int,Ref Int)
 test6 x y =
@@ -50,7 +50,23 @@ test6 x y =
      r' <- alloc y;
      return (r',r)
 
-test8 =
+test7 =
   let (r,r') = mlTopLevel (test6 4 2) in
   mlTopLevel (test4 r r')
-    -- expected result "Exception: signal reached top level (RefNotInHeapSignal -- ref. with address S Z)"
+    -- expected result "Exception: signal reached top level (RefNotInHeapInDerefSignal -- ref. with address S Z)"
+
+test8 :: Ref Int -> Ref Int -> Int -> Int -> User '[MLState] Zero (Int,Int)
+test8 r r' x y =
+  do r =:= x ;
+     r' =:= y;
+     return (x,y)
+
+test9 =
+  let (r,r') = mlTopLevel (test3 4 2) in
+  mlTopLevel (test8 r r' 2 4)
+    -- expected result "Exception: signal reached top level (RefNotInHeapInAssignSignal -- ref. with address Z)"
+
+test10 =
+  let (r,r') = mlTopLevel (test6 4 2) in
+  mlTopLevel (test8 r r' 2 4)
+    -- expected result "Exception: signal reached top level (RefNotInHeapInAssignSignal -- ref. with address S Z)"

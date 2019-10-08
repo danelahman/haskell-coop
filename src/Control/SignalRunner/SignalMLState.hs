@@ -30,10 +30,12 @@ import Data.Typeable
 -- Kill signal(s).
 --
 data S where
-  RefNotInHeapSignal :: Ref a -> S
+  RefNotInHeapInDerefSignal :: Ref a -> S
+  RefNotInHeapInAssignSignal :: Ref a -> S
 
 instance Show S where
-  show (RefNotInHeapSignal r) = "RefNotInHeapSignal -- " ++ show r
+  show (RefNotInHeapInDerefSignal r) = "RefNotInHeapInDerefSignal -- " ++ show r
+  show (RefNotInHeapInAssignSignal r) = "RefNotInHeapInAssignSignal -- " ++ show r
 
 --
 -- Datatypes of natural numbers (for memory addresses).
@@ -133,12 +135,15 @@ mlCoOps (Alloc init) =
 mlCoOps (Deref r)    =
   do h <- getEnv;
      maybe
-       (kill (RefNotInHeapSignal r))
+       (kill (RefNotInHeapInDerefSignal r))
        (\ x -> return x)
        (heapSel h r)
 mlCoOps (Assign r x) =
   do h <- getEnv;
-     setEnv (heapUpd h r x)
+     maybe
+       (kill (RefNotInHeapInAssignSignal r))
+       (\ _ -> setEnv (heapUpd h r x))
+       (heapSel h r)
 
 mlRunner :: Runner '[MLState] sig S Heap
 mlRunner = mkRunner mlCoOps
