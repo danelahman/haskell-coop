@@ -61,4 +61,4 @@ test9 =
   let (r,r') = monTopLevel (test7 4 2) in
   monTopLevel (test8 r r')
     -- expected result "Exception: signal reached top level (RefNotInHeapInDerefSignal -- ref. with address Z)"
-    -- this signal happens in the ML state layer and thus kills of the monotonic layer
+    -- this signal happens in the ML state layer and thus kills off the monotonic layer
