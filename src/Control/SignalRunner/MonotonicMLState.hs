@@ -6,8 +6,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-{-# LANGUAGE ImpredicativeTypes #-} -- needed for storing preorders in memory
-
 --
 -- A runner that enforces monotonicity upon an ML-style state
 -- from `SignalMLState`. It does so by "slotting between" the 
