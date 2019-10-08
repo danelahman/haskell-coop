@@ -26,9 +26,9 @@ test1 =
         (ambFun x)
         (\ f ->                         -- bind an ambient function `f` using the ambient value `x`
           do rebindVal x 2;             -- rebind/update the ambient value `x` with value 2
-             applyFun f 1))             -- call the ambient function `f`, it will use `x` with value 4 (at `f`'s definition site)
+             applyFun f 1))
 
-test2 = ambTopLevel test1               -- expected result 5
+test2 = ambTopLevel test1
 
 test3 :: AmbEff Int
 test3 =
