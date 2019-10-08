@@ -17,7 +17,7 @@
 module Control.SignalRunner.SignalMLState
   (
   Ref, MLState(..), S(..), 
-  alloc, (!), (=:=),
+  alloc, (!), deref, (=:=), assign,
   mlRunner, mlInitialiser, mlFinaliserVal, mlFinaliserExc, mlFinaliserSig, mlTopLevel,
   addrOf, -- needed in MonotonicMLState
   Typeable
@@ -124,8 +124,12 @@ alloc init = tryWithU (focus (performU (Alloc init))) return impossible
 (!) :: (Typeable a,Member MLState sig) => Ref a -> User sig e a
 (!) r = tryWithU (focus (performU (Deref r))) return impossible
 
+deref r = (!) r -- used with qualified module names
+
 (=:=) :: (Typeable a,Member MLState sig) => Ref a -> a -> User sig e ()
 (=:=) r x = tryWithU (focus (performU (Assign r x))) return impossible
+
+assign r x = r =:= x -- used with qualified module names
 
 --
 -- ML-style memory runner.
@@ -136,7 +140,7 @@ mlCoOps (Alloc init) =
      (r,h') <- return (heapAlloc h init);
      setEnv h';
      return r
-mlCoOps (Deref r)    =
+mlCoOps (Deref r) =
   do h <- getEnv;
      maybe
        (kill (RefNotInHeapInDerefSignal r))

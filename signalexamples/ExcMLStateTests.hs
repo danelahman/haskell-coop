@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 
 --
--- Example tests for the ML-style state runner in MLState.
+-- Example tests for the ML-style state runner in ExcMLState.
 --
 -- In this example, the runner might raise an exception
 -- if one tries to dereference a non-existent memory location.

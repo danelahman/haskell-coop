@@ -6,20 +6,30 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
+{-# LANGUAGE ImpredicativeTypes #-} -- needed for storing preorders in memory
+
 --
--- ...
+-- A runner that enforces monotonicity upon an ML-style state from
+-- SignalMLState. It does so by "slotting between" the user code and
+-- the ML-style state runner, using the latter to manage allocation, 
+-- dereferencing, and assignment of references, while itself keeping
+-- track which preorders are associated with which references.
+--
+-- The runner raises a kill signal if an assignment to a reference
+-- is about to violate the preorder associated with that reference.
 --
 
 module Control.SignalRunner.MonotonicMLState
   (
---  Ref, MLState, S(..), 
---  alloc, (!), (=:=),
---  mlRunner, mlInitialiser, mlFinaliserVal, mlFinaliserExc, mlFinaliserSig, mlTopLevel,
---  Typeable
+  Ref, MonMLState, MonS(..), 
+  alloc, (!), (=:=),
+  monRunner, monInitialiser, monFinaliserVal, monFinaliserExc, monFinaliserSig, monTopLevel,
+  Typeable
   ) where
 
 import Control.SignalRunner
-import Control.SignalRunner.SignalMLState
+import Control.SignalRunner.SignalMLState hiding (alloc, (!), (=:=))
+import qualified Control.SignalRunner.SignalMLState as ML (alloc, deref, assign)
 
 import Data.Typeable
 
@@ -27,108 +37,110 @@ import Data.Typeable
 -- Kill signal(s).
 --
 data MonS where
-  MLStateSignal :: S -> MonS
+  MissingPreorderSignal :: Ref a -> MonS
   MononicityViolationSignal :: Ref a -> MonS
 
 instance Show MonS where
-  show (MLStateSignal s) = show s
   show (MononicityViolationSignal r) = "MononicityViolationSignal -- " ++ show r
+  show (MissingPreorderSignal r) = "MissingPreorderSignal -- " ++ show r
 
 --
--- Type of preorders (omitting the reflexicity-transitivity constraints).
+-- Type of preorders (with implicit reflexicity-transitivity constraints).
 --
 type Preorder a = a -> a -> Bool
 
 --
 -- Type of memory storing monotonicity preorders for references.
 --
---
-type MonMemory = forall a . (Typeable a) => Ref a -> Maybe (Preorder a)
+newtype MonMemory = M { memory :: forall a . (Typeable a) => Ref a -> Maybe (Preorder a)}
 
 memSel :: (Typeable a) => MonMemory -> Ref a -> Maybe (Preorder a)
-memSel mem r = mem r
+memSel m r = memory m r
 
 memUpd :: (Typeable a) => MonMemory -> Ref a -> Preorder a -> MonMemory
-memUpd mem r p r' =
-  case cast p of
-    Nothing -> mem r'
-    Just q -> (
-      if (addrOf r == addrOf r')
-      then Just q
-      else mem r')
-
-
-
-{-           
---
--- Signature of ML-style state operations.
---
-data MLState :: * -> * where
-  Alloc  :: (Typeable a) => a -> MLState (Ref a)
-  Deref  :: (Typeable a) => Ref a -> MLState a
-  Assign :: (Typeable a) => Ref a -> a -> MLState ()
+memUpd m r p =
+  M { memory =
+        \ r' -> case cast p of
+                Nothing -> memory m r'
+                Just q -> (
+                  if (addrOf r == addrOf r')
+                  then Just q
+                  else memory m r') }
 
 --
 -- Generic effects.
 --
-alloc :: (Typeable a,Member MLState sig) => a -> User sig e (Ref a)
-alloc init = tryWithU (focus (performU (Alloc init))) return impossible
+alloc :: (Typeable a,Member MonMLState sig) => a -> Preorder a -> User sig e (Ref a)
+alloc init rel = tryWithU (focus (performU (MonAlloc init rel))) return impossible
 
-(!) :: (Typeable a,Member MLState sig) => Ref a -> User sig e a
-(!) r = tryWithU (focus (performU (Deref r))) return impossible
+(!) :: (Typeable a,Member MonMLState sig) => Ref a -> User sig e a
+(!) r = tryWithU (focus (performU (MonDeref r))) return impossible
 
-(=:=) :: (Typeable a,Member MLState sig) => Ref a -> a -> User sig e ()
-(=:=) r x = tryWithU (focus (performU (Assign r x))) return impossible
+(=:=) :: (Typeable a,Member MonMLState sig) => Ref a -> a -> User sig e ()
+(=:=) r x = tryWithU (focus (performU (MonAssign r x))) return impossible
 
 --
--- ML-style memory runner.
+-- Signature of monotonic ML-style state operations.
 --
-mlCoOps :: MLState a -> Kernel sig Zero S Heap a
-mlCoOps (Alloc init) =
-  do h <- getEnv;
-     (r,h') <- return (heapAlloc h init);
-     setEnv h';
+data MonMLState :: * -> * where
+  MonAlloc  :: (Typeable a) => a -> Preorder a -> MonMLState (Ref a)
+  MonDeref  :: (Typeable a) => Ref a -> MonMLState a
+  MonAssign :: (Typeable a) => Ref a -> a -> MonMLState ()
+
+--
+-- Runner that tracks monotonicity for ML-style state.
+--
+monCoOps :: Member MLState sig => MonMLState a -> Kernel sig Zero MonS MonMemory a
+monCoOps (MonAlloc init rel) =
+  do r <- execK (ML.alloc init) return impossible;
+     m <- getEnv;
+     m' <- return (memUpd m r rel);
+     setEnv m';
      return r
-mlCoOps (Deref r)    =
-  do h <- getEnv;
+monCoOps (MonDeref r) =
+  execK (ML.deref r) return impossible
+monCoOps (MonAssign r y) =
+  do x <- execK (ML.deref r) return impossible;
+     m <- getEnv;
      maybe
-       (kill (RefNotInHeapInDerefSignal r))
-       (\ x -> return x)
-       (heapSel h r)
-mlCoOps (Assign r x) =
-  do h <- getEnv;
-     maybe
-       (kill (RefNotInHeapInAssignSignal r))
-       (\ _ -> setEnv (heapUpd h r x))
-       (heapSel h r)
+       (kill (MissingPreorderSignal r))
+       (\ rel -> if (rel x y)
+                 then (execK (ML.assign r y) return impossible)
+                 else (kill (MononicityViolationSignal r)))
+       (memSel m r)
 
-mlRunner :: Runner '[MLState] sig S Heap
-mlRunner = mkRunner mlCoOps
+monRunner :: Member MLState sig => Runner '[MonMLState] sig MonS MonMemory
+monRunner = mkRunner monCoOps
 
 --
--- Top-Level running of the ML-style memory.
+-- Top-Level running of monotonic ML-style memory.
 --
-mlInitialiser :: User sig Zero Heap
-mlInitialiser = return (H { memory = \ _ -> Nothing , nextAddr = Z })
+monInitialiser :: User sig Zero MonMemory
+monInitialiser = return (M { memory = \ _ -> Nothing })
 
-mlFinaliserVal :: a -> Heap -> User sig Zero a
-mlFinaliserVal x _ = return x
+monFinaliserVal :: a -> MonMemory -> User sig Zero a
+monFinaliserVal x _ = return x
 
-mlFinaliserExc :: Zero -> Heap -> User sig Zero a
-mlFinaliserExc e _ = impossible e
+monFinaliserExc :: Zero -> MonMemory -> User sig Zero a
+monFinaliserExc e _ = impossible e
 
-mlFinaliserSig :: S -> User sig Zero a
-mlFinaliserSig s = error ("signal reached top level (" ++ show s ++ ")")
+monFinaliserSig :: MonS -> User sig Zero a
+monFinaliserSig s = error ("signal reached (monotonic) top level (" ++ show s ++ ")")
 
-mlTopLevel :: User '[MLState] Zero a -> a
-mlTopLevel m =
+monTopLevel :: User '[MonMLState] Zero a -> a
+monTopLevel m =
   pureTopLevel (
     run
       mlRunner
       mlInitialiser
-      m
+      (run
+         monRunner
+         monInitialiser
+         m
+         monFinaliserVal
+         monFinaliserExc
+         monFinaliserSig)
       mlFinaliserVal
       mlFinaliserExc
       mlFinaliserSig
   )
--}

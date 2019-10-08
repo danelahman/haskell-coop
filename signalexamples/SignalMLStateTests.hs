@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 
 --
--- Example tests for the ML-style state runner in MLState.
+-- Example tests for the ML-style state runner in SignalMLState.
 --
 -- In this example, the runner might raise a kill signal
 -- if one tries to dereference a non-existent memory location.
