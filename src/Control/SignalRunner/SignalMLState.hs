@@ -16,9 +16,10 @@
 
 module Control.SignalRunner.SignalMLState
   (
-  Ref, MLState, S(..), 
+  Ref, MLState(..), S(..), 
   alloc, (!), (=:=),
   mlRunner, mlInitialiser, mlFinaliserVal, mlFinaliserExc, mlFinaliserSig, mlTopLevel,
+  addrOf, -- needed in MonotonicMLState
   Typeable
   ) where
 
@@ -65,6 +66,9 @@ type Addr = Nat
 
 data Ref a where
   R :: (Typeable a) => Addr -> Ref a
+
+instance Eq (Ref a) where
+  R addr == R addr' = addr == addr'
 
 instance Show (Ref a) where
   show r = "ref. with address " ++ show (addrOf r)
