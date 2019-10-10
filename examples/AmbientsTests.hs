@@ -28,7 +28,7 @@ test1 =
           do rebindVal x 2;             -- rebind/update the ambient value `x` with value 2
              applyFun f 1))
 
-test2 = ambTopLevel test1
+test2 = ambTopLevel test1 -- expected result 5
 
 test3 :: AmbEff Int
 test3 =
