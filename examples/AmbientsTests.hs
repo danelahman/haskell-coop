@@ -39,9 +39,8 @@ test3 =
         (ambFun x)
         (\ f ->
           do rebindVal x 2;
-             withAmbFun
-               (ambFun x)
-               (\ g -> applyFun g 1)))
+             rebindFun f (ambFun x);
+             (applyFun f 1)))
 
 test4 = ambTopLevel test3 -- expected result 3
 
