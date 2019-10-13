@@ -15,7 +15,7 @@ module Control.Runner (
   performU, performK,
   getEnv, setEnv,
   Runner, mkRunner, emptyRunner, unionRunners, pairRunners,
-  run, execU, execK,
+  run, kernel, user,
   topLevel, pureTopLevel, ioTopLevel,
   embedU, embedK, embedRunner, extendRunner, fwdRunner, focus,
   Member
@@ -108,15 +108,15 @@ setEnv c' = KC (\ c -> return ((),c'))
 --
 -- Executing a kernel computation inside user computations.
 --
-execU :: Kernel sig c a -> c -> (a -> c -> User sig b) -> User sig b
-execU (KC k) c f =
+kernel :: Kernel sig c a -> c -> (a -> c -> User sig b) -> User sig b
+kernel (KC k) c f =
   UC (do (x,c') <- k c; let (UC m) = f x c' in m)
 
 --
 -- Executing a user computation inside kernel computations.
 --
-execK :: User sig a -> (a -> Kernel sig c b) -> Kernel sig c b
-execK (UC m) f =
+user :: User sig a -> (a -> Kernel sig c b) -> Kernel sig c b
+user (UC m) f =
   KC (\ c -> do x <- m; let (KC k) = f x in k c)
 
 --
@@ -149,15 +149,15 @@ runOp (CoOps coop coops) u =
     Right o -> coop o
     Left u -> runOp coops u
 
-runU :: Runner sig sig' c
-     -> c
-     -> User sig a
-     -> (a -> c -> User sig' b)
-     -> User sig' b
-runU r c (UC (Val x)) mf = mf x c
-runU r c (UC (E u q)) mf =
-  execU (runOp r u) c
-        (\ x c' -> runU r c' (UC (qApp q x)) mf)
+runAux :: Runner sig sig' c
+       -> c
+       -> User sig a
+       -> (a -> c -> User sig' b)
+       -> User sig' b
+runAux r c (UC (Val x)) mf = mf x c
+runAux r c (UC (E u q)) mf =
+  kernel (runOp r u) c
+        (\ x c' -> runAux r c' (UC (qApp q x)) mf)
 
 run :: Runner sig sig' c
     -> User sig' c
@@ -165,7 +165,7 @@ run :: Runner sig sig' c
     -> (a -> c -> User sig' b)
     -> User sig' b
 run r mi m mf =
-  do c <- mi; runU r c m mf
+  do c <- mi; runAux r c m mf
 
 --
 -- Running a user computation in a top-level container (monad).

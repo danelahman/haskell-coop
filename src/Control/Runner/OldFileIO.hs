@@ -35,13 +35,13 @@ data Cleaner :: * -> * where
 --
 fioCoOps :: FileIO a -> Kernel '[IO] () a
 fioCoOps (OpenFile fn mode) =
-  execK (focus (performU (openFile fn mode))) return
+  user (focus (performU (openFile fn mode))) return
 fioCoOps (CloseFile fh) =
-  execK (focus (performU (hClose fh))) return
+  user (focus (performU (hClose fh))) return
 fioCoOps (ReadFile fh) =
-  execK (focus (performU (B.hGetContents fh))) (\ s -> return (B.unpack s))
+  user (focus (performU (B.hGetContents fh))) (\ s -> return (B.unpack s))
 fioCoOps (WriteFile fh s) =
-  execK (focus (performU (B.hPutStr fh (B.pack s)))) return
+  user (focus (performU (B.hPutStr fh (B.pack s)))) return
 
 fioRunner :: Runner '[FileIO] '[IO] ()
 fioRunner = mkRunner fioCoOps

@@ -79,11 +79,11 @@ fpCoOps :: State memshape r -> Kernel '[MLState] (Footprint memshape) r
 fpCoOps (Get addr) =
   do mem <- getEnv;
      r <- return (lkpRef mem addr);
-     execK ((!) r) return
+     user ((!) r) return
 fpCoOps (Put addr x) =
   do mem <- getEnv;
      r <- return (lkpRef mem addr);
-     execK (r =:= x) return
+     user (r =:= x) return
 
 fpRunner :: Runner '[State memshape] '[MLState] (Footprint memshape)
 fpRunner = mkRunner fpCoOps

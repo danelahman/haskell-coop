@@ -74,14 +74,14 @@ type FIOState = ()
 
 fioCoOps :: Member IO sig => FileIO a -> Kernel sig FIOState a
 fioCoOps (OpenFile fn mode) =
-  execK (focus (performU (openFile fn mode))) return
+  user (focus (performU (openFile fn mode))) return
 fioCoOps (CloseFile fh) =
-  execK (focus (performU (hClose fh))) return
+  user (focus (performU (hClose fh))) return
 fioCoOps (ReadFile fh) =
   -- using ByteString IO to ensure strictness of IO
-  execK (focus (performU (B.hGetContents fh))) (\ s -> return (B.unpack s))
+  user (focus (performU (B.hGetContents fh))) (\ s -> return (B.unpack s))
 fioCoOps (WriteFile fh s) =
-  execK (focus (performU (B.hPutStr fh (B.pack s)))) return
+  user (focus (performU (B.hPutStr fh (B.pack s)))) return
 
 fioRunner :: Member IO sig =>  Runner '[FileIO] sig FIOState
 fioRunner = mkRunner fioCoOps
@@ -100,7 +100,7 @@ fhCoOps Read =
      return s
 fhCoOps (Write s') =
   do (s,fh) <- getEnv;
-     execK (focus (performU (WriteFile fh s'))) return
+     user (focus (performU (WriteFile fh s'))) return
 
 fhRunner :: Member FileIO sig => Runner '[File] sig FHState
 fhRunner = mkRunner fhCoOps

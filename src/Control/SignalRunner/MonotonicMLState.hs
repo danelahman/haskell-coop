@@ -96,20 +96,20 @@ data MonMLState :: * -> * where
 --
 monCoOps :: Member MLState sig => MonMLState a -> Kernel sig Zero MonS MonMemory a
 monCoOps (MonAlloc init rel) =
-  do r <- execK (ML.alloc init) return impossible;
+  do r <- user (ML.alloc init) return impossible;
      m <- getEnv;
      m' <- return (memUpd m r rel);
      setEnv m';
      return r
 monCoOps (MonDeref r) =
-  execK (ML.deref r) return impossible
+  user (ML.deref r) return impossible
 monCoOps (MonAssign r y) =
-  do x <- execK (ML.deref r) return impossible;
+  do x <- user (ML.deref r) return impossible;
      m <- getEnv;
      maybe
        (kill (MissingPreorderSignal r))
        (\ rel -> if (rel x y)
-                 then (execK (ML.assign r y) return impossible)
+                 then (user (ML.assign r y) return impossible)
                  else (kill (MononicityViolationSignal r)))
        (memSel m r)
 

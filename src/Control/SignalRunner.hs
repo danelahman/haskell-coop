@@ -19,7 +19,7 @@ module Control.SignalRunner (
   getEnv, setEnv,
   Runner, mkRunner, emptyRunner, unionRunners, pairRunners,
   tryWithU, tryWithK, 
-  run, execU, execK,
+  run, kernel, user,
   topLevel, pureTopLevel, ioTopLevel,
   embedU, embedK, embedRunner, extendRunner, fwdRunner, focus,
   Zero, impossible,
@@ -206,13 +206,13 @@ tryWithK (K k) f g =
 --
 -- Executing a kernel computation inside user computations.
 --
-execU :: Kernel sig e s c a
+kernel :: Kernel sig e s c a
       -> c
       -> (a -> c -> User sig e' b)
       -> (e -> c -> User sig e' b)
       -> (s -> User sig e' b)
       -> User sig e' b
-execU (K k) c f g h =
+kernel (K k) c f g h =
   U (do xs <- k c;
         either
           (\ (xe,c') ->
@@ -226,11 +226,11 @@ execU (K k) c f g h =
 --
 -- Executing a user computation inside kernel computations.
 --
-execK :: User sig e a
+user :: User sig e a
       -> (a -> Kernel sig e' s c b)
       -> (e -> Kernel sig e' s c b)
       -> Kernel sig e' s c b
-execK (U m) f g =
+user (U m) f g =
   K (\ c -> do xe <- m;
                either
                  (\ x -> let (K k) = f x in k c)
@@ -270,20 +270,20 @@ runOp (CoOps coop coops) u =
     Right o -> coop o
     Left u -> runOp coops u
 
-runU :: Runner sig sig' s c
-     -> c
-     -> User sig e a
-     -> (a -> c -> User sig' e' b)
-     -> (e -> c -> User sig' e' b)
-     -> (s -> User sig' e' b)
-     -> User sig' e' b
-runU r c (U (Val (Left x))) f g h = f x c
-runU r c (U (Val (Right e))) f g h = g e c
-runU r c (U (E op q)) f g h =
-  execU
+runAux :: Runner sig sig' s c
+       -> c
+       -> User sig e a
+       -> (a -> c -> User sig' e' b)
+       -> (e -> c -> User sig' e' b)
+       -> (s -> User sig' e' b)
+       -> User sig' e' b
+runAux r c (U (Val (Left x))) f g h = f x c
+runAux r c (U (Val (Right e))) f g h = g e c
+runAux r c (U (E op q)) f g h =
+  kernel
     (runOp r op)
     c
-    (\ x c' -> runU r c' (U (qApp q x)) f g h)
+    (\ x c' -> runAux r c' (U (qApp q x)) f g h)
     (\ e c' -> impossible e)
     (\ s -> h s)
 
@@ -295,7 +295,7 @@ run :: Runner sig sig' s c
      -> (s -> User sig' e' b)
     -> User sig' e' b
 run r i m f g h =
-  do c <- i; runU r c m f g h
+  do c <- i; runAux r c m f g h
 
 --
 -- Running a user computation in a top-level container (monad).

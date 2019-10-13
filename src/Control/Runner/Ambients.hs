@@ -145,7 +145,7 @@ applyFun f x = focus (performU (Apply f x))
 rebindVal :: (Typeable a) => AmbVal a -> a -> AmbEff ()
 rebindVal (AV x) y = focus (performU (Rebind x (\ _ -> return y)))
 
-rebindFun :: (Typeable a,Typeable b)
+rebindFun  :: (Typeable a,Typeable b)
           => AmbFun a b
           -> (a -> AmbEff b)
           -> AmbEff ()
@@ -175,7 +175,7 @@ ambCoOps (Bind f) =
 ambCoOps (Apply f x) =
   do h <- getEnv;
      (f,d) <- return (ambHeapSel h f (depth h));
-     execK
+     user
        (run
           ambRunner
           (return (h {depth = d}))
