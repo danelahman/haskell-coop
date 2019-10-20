@@ -13,17 +13,12 @@
 --
 
 module Control.SignalRunner (
-  User, Kernel,
-  performU, performK,
-  raiseU, raiseK, kill, 
-  getEnv, setEnv,
-  Runner, mkRunner, emptyRunner, unionRunners, pairRunners,
-  tryWithU, tryWithK, 
-  run, kernel, user,
-  topLevel, pureTopLevel, ioTopLevel,
-  embedU, embedK, embedRunner, extendRunner, fwdRunner, focus,
-  Zero, impossible,
-  Member
+  User, Kernel, embedU, embedK, focus, performU, performK,
+  raiseU, raiseK, kill, getEnv, setEnv, tryWithU, tryWithK,
+  kernel, user, Runner, mkRunner, emptyRunner, SigUnion,
+  unionRunners, embedRunner, extendRunner, pairRunners,
+  fwdRunner, run, topLevel, pureTopLevel, ioTopLevel,
+  Zero, impossible, Member
   ) where
 
 --
@@ -98,12 +93,32 @@ instance Monad (Kernel sig e s c) where
   k >>= f = bindK k f
 
 --
--- Empty type and its eliminator.
+-- Embedding a user computations in a larger signature of operations.
 --
-data Zero
+embedU :: User sig e a -> User (eff ': sig) e a
+embedU (U m) = U (raise m)
 
-impossible :: Zero -> a
-impossible x = case x of {}
+--
+-- Embedding a kernel computations in a larger signature of operations.
+--
+embedK :: Kernel sig e s c a -> Kernel (eff ': sig) e s c a
+embedK (K k) = K (\ c -> raise (k c))
+
+--
+-- Focussing on a particular effect in a larger signature of operations.
+--
+-- Here the use of `impossible` in fact forces the set of kill signals 
+-- of the given runner `fwdRunner` to be `Zero`.
+--
+focus :: Member eff sig => User '[eff] e a -> User sig e a
+focus m =
+  run
+    fwdRunner
+    (return ())
+    m
+    (\ x () -> return x)
+    (\ e () -> raiseU e)
+    impossible
 
 --
 -- Performing user operations while focussed on a single effect.
@@ -133,11 +148,6 @@ genPerformU :: Member eff sig => eff a -> User sig Zero a
 genPerformU op = U (do x <- send op; return (Left x))
 
 --
--- Raising an exception in user computations.
---
-raiseU :: e -> User sig e a
-raiseU e = U (return (Right e))
---
 -- Performing kernel operations while focussed on a single effect.
 --
 performK :: eff a -> Kernel '[eff] Zero s c a
@@ -148,6 +158,12 @@ performK op = K (\ c -> (do x <- send op; return (Left (Left x,c))))
 --
 genPerformK :: Member eff sig => eff a -> Kernel sig Zero s c a
 genPerformK op = K (\ c -> (do x <- send op; return (Left (Left x,c))))
+
+--
+-- Raising an exception in user computations.
+--
+raiseU :: e -> User sig e a
+raiseU e = U (return (Right e))
 
 --
 -- Raising an exception in kernel computations.
@@ -252,6 +268,65 @@ mkRunner :: (forall b . eff b -> Kernel sig Zero s c b)
 mkRunner coops = CoOps coops Empty
 
 --
+-- Empty runner and union of runners.
+--
+emptyRunner :: Runner '[] sig' s c
+emptyRunner = Empty
+
+type family SigUnion (sig :: [* -> *]) (sig' :: [* -> *]) :: [* -> *] where 
+  SigUnion '[] sig' = sig'
+  SigUnion (eff ': sig) sig' = eff ': (SigUnion sig sig')
+
+unionRunners :: Runner sig sig'' s c -> Runner sig' sig'' s c
+             -> Runner (SigUnion sig sig') sig'' s c
+unionRunners Empty r' = r'
+unionRunners (CoOps coops r) r' =
+  CoOps coops (unionRunners r r')
+
+--
+-- Embedding a runner in a larger signature of operations.
+--
+embedRunner :: Runner sig sig' s c -> Runner sig (eff ': sig') s c
+embedRunner Empty = Empty
+embedRunner (CoOps coops r) =
+  CoOps (\ op -> embedK (coops op)) (embedRunner r)
+
+--
+-- Extending the carrier of a runner with some type/set.
+--
+extendRunner :: Runner sig sig' s c' -> Runner sig sig' s (c,c')
+extendRunner Empty = Empty
+extendRunner (CoOps coops r) =
+  CoOps (\ op -> K (\ (c,c') ->
+                     do xs <- let (K k) = coops op in k c';
+                        either
+                          (\ (xe,c'') -> return (Left (xe,(c,c''))))
+                          (\ s -> return (Right s))
+                          xs))
+        (extendRunner r)
+
+--
+-- Pairing two runners in the same signature of operations.
+--
+pairRunners :: Runner sig sig'' s c -> Runner sig' sig'' s c'
+            -> Runner (SigUnion sig sig') sig'' s (c,c')
+pairRunners Empty r' = extendRunner r'
+pairRunners (CoOps coops r) r' =
+  CoOps (\ op -> K (\ (c,c') ->
+                     do xs <- let (K k) = coops op in k c
+                        either
+                          (\ (xe,c'') -> return (Left (xe,(c'',c'))))
+                          (\ s -> return (Right s))
+                          xs))
+        (pairRunners r r')
+
+--
+-- Runner that forwards all co-operations to its runtime.
+--
+fwdRunner :: Member eff sig => Runner '[eff] sig s c
+fwdRunner = CoOps genPerformK Empty
+
+--
 -- The
 --
 --  using C @ m_init
@@ -316,112 +391,11 @@ pureTopLevel _ = error "this should not have happened"
 --
 ioTopLevel :: User '[IO] Zero a -> IO a
 ioTopLevel = topLevel
-
---
--- Empty runner and union of runners.
---
-emptyRunner :: Runner '[] sig' s c
-emptyRunner = Empty
-
-type family SigUnion (sig :: [* -> *]) (sig' :: [* -> *]) :: [* -> *] where 
-  SigUnion '[] sig' = sig'
-  SigUnion (eff ': sig) sig' = eff ': (SigUnion sig sig')
-
-unionRunners :: Runner sig sig'' s c -> Runner sig' sig'' s c
-             -> Runner (SigUnion sig sig') sig'' s c
-unionRunners Empty r' = r'
-unionRunners (CoOps coops r) r' =
-  CoOps coops (unionRunners r r')
-
---
--- Embedding a user computations in a larger signature of operations.
---
-embedU :: User sig e a -> User (eff ': sig) e a
-embedU (U m) = U (raise m)
-
---
--- Embedding a kernel computations in a larger signature of operations.
---
-embedK :: Kernel sig e s c a -> Kernel (eff ': sig) e s c a
-embedK (K k) = K (\ c -> raise (k c))
-
---
--- Embedding a runner in a larger signature of operations.
---
-embedRunner :: Runner sig sig' s c -> Runner sig (eff ': sig') s c
-embedRunner Empty = Empty
-embedRunner (CoOps coops r) =
-  CoOps (\ op -> embedK (coops op)) (embedRunner r)
-
---
--- Extending the carrier of a runner with some type/set.
---
-extendRunner :: Runner sig sig' s c' -> Runner sig sig' s (c,c')
-extendRunner Empty = Empty
-extendRunner (CoOps coops r) =
-  CoOps (\ op -> K (\ (c,c') ->
-                     do xs <- let (K k) = coops op in k c';
-                        either
-                          (\ (xe,c'') -> return (Left (xe,(c,c''))))
-                          (\ s -> return (Right s))
-                          xs))
-        (extendRunner r)
-
---
--- Pairing two runners in the same signature of operations.
---
-pairRunners :: Runner sig sig'' s c -> Runner sig' sig'' s c'
-            -> Runner (SigUnion sig sig') sig'' s (c,c')
-pairRunners Empty r' = extendRunner r'
-pairRunners (CoOps coops r) r' =
-  CoOps (\ op -> K (\ (c,c') ->
-                     do xs <- let (K k) = coops op in k c
-                        either
-                          (\ (xe,c'') -> return (Left (xe,(c'',c'))))
-                          (\ s -> return (Right s))
-                          xs))
-        (pairRunners r r')
         
 --
--- Runner that forwards all co-operations to its runtime.
+-- Empty type and its eliminator.
 --
-fwdRunner :: Member eff sig => Runner '[eff] sig s c
-fwdRunner = CoOps genPerformK Empty
+data Zero
 
---
--- Focussing on a particular effect in a larger signature of operations.
---
--- Here the use of `impossible` in fact forces the set of kill signals 
--- of the given runner `fwdRunner` to be `Zero`.
---
-focus :: Member eff sig => User '[eff] e a -> User sig e a
-focus m =
-  run
-    fwdRunner
-    (return ())
-    m
-    (\ x () -> return x)
-    (\ e () -> raiseU e)
-    impossible
-
-
-{-
---
--- TODO: Make exceptional signatures in this style work.
---
--- Exceptional signatures and a their conversion into
--- ordinary Freer monad signatures using `Either`.
---
-type ExcSig = [((* -> *),*)]
-
---newtype EffExcToEff (eff :: * -> *) (exc :: *) (a :: *) =
---  ExcEff (eff (Either exc a))
-
-type EffExcToEff (eff :: * -> *) (exc :: *) (a :: *) =
-  eff (Either exc a)
-
-type family ExcSigToSig (sig :: ExcSig) :: [* -> *] where
-  ExcSigToSig '[] = '[]
-  ExcSigToSig ('(eff,exc) ': sig) =
-    (EffExcToEff eff exc) ': ExcSigToSig sig
--}
+impossible :: Zero -> a
+impossible x = case x of {}
