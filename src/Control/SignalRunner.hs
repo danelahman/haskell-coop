@@ -11,7 +11,7 @@
 {-|
 Module      : Control.SignalRunner
 Description : Effectful runners (in their general form, with support for both exceptions and signals)
-Copyright   : (c) Danel Ahmman, 2019
+Copyright   : (c) Danel Ahman, 2019
 License     : MIT
 Maintainer  : danel.ahman@eesti.ee
 Stability   : experimental

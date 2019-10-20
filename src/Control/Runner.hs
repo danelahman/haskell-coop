@@ -9,7 +9,7 @@
 {-|
 Module      : Control.Runner
 Description : Effectful runners (in a restricted form, without support for exceptions and signals)
-Copyright   : (c) Danel Ahmman, 2019
+Copyright   : (c) Danel Ahman, 2019
 License     : MIT
 Maintainer  : danel.ahman@eesti.ee
 Stability   : experimental
