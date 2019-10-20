@@ -30,22 +30,18 @@ The `User` and `Kernel` monad use internally the [freer-simple](http://hackage.h
 implementation of a free monad on a signature of effects.
 -}
 module Control.Runner (
-  User, Kernel, embedU, embedK, focus,
-  performU, performK,
-  getEnv, setEnv, kernel, user,
-  Runner, mkRunner, emptyRunner, SigUnion, unionRunners,
-  embedRunner, extendRunner, pairRunners, fwdRunner,
-  run,
-  topLevel, pureTopLevel, ioTopLevel,
-  Member
+  User, Kernel, embedU, embedK, focus, performU, performK,
+  getEnv, setEnv, kernel, user, Runner, mkRunner, emptyRunner,
+  SigUnion, unionRunners, embedRunner, extendRunner, pairRunners,
+  fwdRunner, run, topLevel, pureTopLevel, ioTopLevel, Member
   ) where
 
 import Control.Monad.Freer.Internal hiding (run) -- Tested with v1.2.1.0
 
 -- | The monad that we use to model user computations that can perform algebraic
--- operations given by effects in the signature @sig@ (using `performU`) and return values
--- of type @a@. The operation calls will be implemented by some enveloping runner
--- of type `Runner`.
+-- operations given by effects in the signature @sig@ (using `performU`) and return 
+-- values of type @a@. The algebraic operation calls will be implemented by some 
+-- enveloping runner of type `Runner`.
 --
 -- The signature @sig@ has type @[* -> *]@, in other words, it is a list of effects.
 -- Exactly as in the [freer-simple](http://hackage.haskell.org/package/freer-simple)
@@ -53,7 +49,7 @@ import Control.Monad.Freer.Internal hiding (run) -- Tested with v1.2.1.0
 -- denote the "algebraic operations" associated with the given effect.
 --
 -- For instance, the effect of performing file IO could be described using
--- the following effect definition:
+-- the @FileIO@ effect, given by
 --
 -- > data FileIO :: * -> * where
 -- >   OpenFile  :: FilePath -> IOMode -> FileIO Handle
@@ -62,7 +58,7 @@ import Control.Monad.Freer.Internal hiding (run) -- Tested with v1.2.1.0
 -- >   WriteFile :: Handle -> String -> FileIO ()
 --
 -- A user computation performing no other effects than file IO and returning
--- values of type `a` would then have type @User '[FileIO] a@.
+-- values of type @a@ would then have type @User '[FileIO] a@.
 newtype User sig a =
   UC (Eff sig a) deriving (Functor,Applicative,Monad)
 
