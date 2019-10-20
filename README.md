@@ -20,10 +20,10 @@ and the [cabal](https://www.haskell.org/cabal/) package manager and build system
 
 You can type:
 
-- `make` to locally build the <span style="font-variant:small-caps;">Haskell-Coop</span> library,
-  generate documentation, and typecheck examples, 
+- `make` to locally build the <span style="font-variant:small-caps;">Haskell-Coop</span> library, 
+  generate documentation, and typecheck examples.
 - `make build` to locally build the <span style="font-variant:small-caps;">Haskell-Coop</span>
-   library and generate documentation, and
+   library and generate documentation.
 - `make examples` to typecheck examples.
 
 Building <span style="font-variant:small-caps;">Haskell-Coop</span> uses `cabal new-build` to locally
@@ -35,7 +35,7 @@ The examples are typechecked with `ghci`.
 
 There are two main entry points to the library:
 
-- `src/Control/Runner.hs` that implements a restricted form of effectful runners (without exceptions and signals), and 
+- `src/Control/Runner.hs` that implements a restricted form of effectful runners (without exceptions and signals). 
 - `src/Control/SignalRunner.hs` that implements the general form of effectful runners (with exceptions and signals).
 
 The directories `src/Control/Runner/` and `src/Control/SignalRunner/` contains various example 
