@@ -1,6 +1,6 @@
-# <span style="font-variant:small-caps;">Haskell-Coop</span>
+# Haskell-Coop
 
-<span style="font-variant:small-caps;">Haskell-Coop</span> is an experimental Haskell library for programming with effectful runners. It is based on
+Haskell-Coop is an experimental Haskell library for programming with effectful runners. It is based on
 ongoing research of [Danel Ahman](https://danel.ahman.ee) and [Andrej Bauer](http://www.andrej.com).
 
 Until a proper publication about this research has appeared, you might want to check the
@@ -13,35 +13,33 @@ literature as comodels of algebraic effects).
 
 ## Prerequisites
 
-To build <span style="font-variant:small-caps;">Haskell-Coop</span>, you need a working installation
-of [<span style="font-variant:small-caps;">Haskell</span>](https://www.haskell.org/platform/), 
-and the [<span style="font-variant:small-caps;">Cabal</span>](https://www.haskell.org/cabal/) package manager and build system.
+To build Haskell-Coop, you need a working installation
+of [Haskell](https://www.haskell.org/platform/), 
+and the [Cabal](https://www.haskell.org/cabal/) package manager and build system.
 
 ## Building haskell-coop
 
 You can type:
 
-- `make` to locally build the <span style="font-variant:small-caps;">Haskell-Coop</span> library, 
-  generate documentation, and typecheck examples.
-- `make build` to locally build the <span style="font-variant:small-caps;">Haskell-Coop</span>
-   library and generate documentation.
+- `make` to locally build the Haskell-Coop library, generate documentation, and typecheck examples.
+- `make build` to locally build the Haskell-Coop library and generate documentation.
 - `make examples` to typecheck examples.
 
-Building <span style="font-variant:small-caps;">Haskell-Coop</span> uses `cabal new-build` to locally
-build the library and all its dependencies, and to generate Haddock documentation. The generated documentation
-can be found in `dist-newstyle/build/platform/ghc-version/haskell-coop-version/doc/html/haskell-coop/index.html`.
+Building Haskell-Coop uses `cabal new-build` to locally build the library and all its dependencies,
+and to generate Haddock documentation. The generated documentation can be found in
+`dist-newstyle/build/platform/ghc-version/haskell-coop-version/doc/html/haskell-coop/index.html`.
 The examples are typechecked with `ghci`.
 
 ## Entry points
 
-There are two main entry points to the <span style="font-variant:small-caps;">Haskell-Coop</span> library:
+There are two main entry points to the Haskell-Coop library:
 
 - `src/Control/Runner.hs` that implements a restricted form of effectful runners (without exceptions and signals). 
 - `src/Control/SignalRunner.hs` that implements the general form of effectful runners (with exceptions and signals).
 
 The directories `src/Control/Runner/` and `src/Control/SignalRunner/` contains various example 
 runners that implement file IO, ML-style state, their combinations, ambient functions as present 
-in the [<span style="font-variant:small-caps;">Koka</span>](https://github.com/koka-lang/koka) language, etc.
+in the [Koka](https://github.com/koka-lang/koka) language, etc.
 
 Example uses of these runners can be found in `examples/without_signals/` and `examples/with_signals/`.
 
