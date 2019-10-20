@@ -26,6 +26,7 @@ library
     Control.Runner.MLFPState,
     Control.Runner.IntState,
     Control.SignalRunner.ExcMLState,
+    Control.SignalRunner.MonotonicMLState,
     Control.SignalRunner.SignalMLState
   default-extensions:
     DataKinds,
