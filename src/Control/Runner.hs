@@ -33,7 +33,7 @@ module Control.Runner (
   User, Kernel, embedU, embedK, focus, performU, performK,
   getEnv, setEnv, kernel, user, Runner, mkRunner, emptyRunner,
   SigUnion, unionRunners, embedRunner, extendRunner, pairRunners,
-  fwdRunner, run, topLevel, pureTopLevel, ioTopLevel, Member
+  fwdRunner, run, pureTopLevel, topLevel, ioTopLevel, Member
   ) where
 
 import Control.Monad.Freer.Internal hiding (run) -- Tested with v1.2.1.0
@@ -279,6 +279,7 @@ runAux r c (UC (E u q)) mf =
 -- >   (performU (OpenFile "hello.txt" WriteMode))
 -- >   (do performU (Write "Hello, world."); performU (Write "Hello, again."))
 -- >   (\ x fh -> do performU (CloseFile fh); return x)
+-- >   :: User '[FileIO] () 
 --
 -- Here we initialise the runtime state for the write-only file access runner
 -- with a file handle pointing to @"hello.txt"@, by performing a file open
@@ -291,6 +292,15 @@ runAux r c (UC (E u q)) mf =
 -- as an argument and not the file handle itself). Furthermore, the semantics
 -- of the `run` operation ensures that the finaliser is always called exactly
 -- once, ensuring a correct cleanup of the file handle resource, as desired.
+--
+-- In the context of the
+-- talk [Interacting with external resources using runners (aka comodels)](https://danel.ahman.ee/talks/chocola19.pdf),
+-- the `run` operation corresponds to the following programming construct
+--
+-- > using R @ M_init
+-- > run M
+-- > finally {
+-- >   return x @ c -> M_return }
 run :: Runner sig sig' c
     -> User sig' c
     -> User sig a
@@ -299,15 +309,15 @@ run :: Runner sig sig' c
 run r mi m mf =
   do c <- mi; runAux r c m mf
 
--- | A top-level for running user computations as Haskell's monadic computations.
-topLevel :: Monad m => User '[m] a -> m a
-topLevel (UC c) = runM c
-
--- | A top-level for running user computations for the empty signature as values.
+-- | A top-level for running user computations for the empty signature as pure, effect-free values.
 pureTopLevel :: User '[] a -> a
 pureTopLevel (UC (Val x)) = x
 pureTopLevel _ = error "this should not have happened"
 
--- | A short-hand for top-level running of user computations in the IO monad.
+-- | A top-level for running user computations as Haskell's monadic computations.
+topLevel :: Monad m => User '[m] a -> m a
+topLevel (UC c) = runM c
+
+-- | A short-hand for top-level running of user computations in the IO monad, defined using `topLevel`.
 ioTopLevel :: User '[IO] a -> IO a
 ioTopLevel = topLevel

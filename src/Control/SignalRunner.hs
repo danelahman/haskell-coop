@@ -8,16 +8,35 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
---
--- Effectful runners (with support for exceptions and kill signals).
---
+{-|
+Module      : Control.SignalRunner
+Description : Effectful runners (in their general form, with support for both exceptions and signals)
+Copyright   : (c) Danel Ahmman, 2019
+License     : MIT
+Maintainer  : danel.ahman@eesti.ee
+Stability   : experimental
 
+This module provides an implementation of effectful runners of algebraic effects (in their general form,
+with support for both exceptions and signals) to run user code (modelled using the `User` monad)
+with co-operations implemented as kernel code (modelled using the `Kernel` monad). This module is
+based on ongoing research of [Danel Ahman](https://danel.ahman.ee) and [Andrej Bauer](http://www.andrej.com).
+
+Until a proper publication about this research has appeared, you might want to check the
+talk [Interacting with external resources using runners (aka comodels)](https://danel.ahman.ee/talks/chocola19.pdf)
+for an overview of effectful runners and how we transform them into a programming language construct.
+For general background reading on algebraic effects and handlers, we recommend the lecture
+notes [What is algebraic about algebraic effects and handlers?](https://arxiv.org/abs/1807.05923). Section 4
+of these notes discusses ordinary runners of algebraic effects (also known in the literature as comodels of algebraic effects).
+
+The `User` and `Kernel` monad use internally the [freer-simple](http://hackage.haskell.org/package/freer-simple)
+implementation of a free monad on a signature of effects, namely, the `Eff` monad.
+-}
 module Control.SignalRunner (
   User, Kernel, embedU, embedK, focus, performU, performK,
   raiseU, raiseK, kill, getEnv, setEnv, tryWithU, tryWithK,
   kernel, user, Runner, mkRunner, emptyRunner, SigUnion,
   unionRunners, embedRunner, extendRunner, pairRunners,
-  fwdRunner, run, topLevel, pureTopLevel, ioTopLevel,
+  fwdRunner, run, pureTopLevel, topLevel, ioTopLevel,
   Zero, impossible, Member
   ) where
 
@@ -373,18 +392,18 @@ run r i m f g h =
   do c <- i; runAux r c m f g h
 
 --
--- Running a user computation in a top-level container (monad).
---
---
-topLevel :: Monad m => User '[m] Zero a -> m a
-topLevel (U m) = runM (fmap (either id impossible) m)
-
---
 -- Running user computation in a top-level pure containers.
 --
 pureTopLevel :: User '[] Zero a -> a
 pureTopLevel (U (Val (Left x))) = x
 pureTopLevel _ = error "this should not have happened"
+
+--
+-- Running a user computation in a top-level container (monad).
+--
+--
+topLevel :: Monad m => User '[m] Zero a -> m a
+topLevel (U m) = runM (fmap (either id impossible) m)
 
 --
 -- Short-hand for running user computation ina top-level IO container.
