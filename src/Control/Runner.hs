@@ -17,7 +17,7 @@ Stability   : experimental
 This module provides an implementation of effectful runners of algebraic effects (in a restricted form,
 without support for exceptions and signals) to run user code (modelled using the `User` monad)
 with co-operations implemented as kernel code (modelled using the `Kernel` monad). This module is
-based on ongoing research of [Danel Ahman](https://danel.ahman.ee/) and [Andrej Bauer](http://www.andrej.com).
+based on ongoing research of [Danel Ahman](https://danel.ahman.ee) and [Andrej Bauer](http://www.andrej.com).
 
 Until a proper publication about this research has appeared, you might want to check the
 talk [Interacting with external resources using runners (aka comodels)](https://danel.ahman.ee/talks/chocola19.pdf)
