@@ -13,8 +13,9 @@ literature as comodels of algebraic effects).
 
 ## Prerequisites
 
-To build <span style="font-variant:small-caps;">Haskell-Coop</span>, you need a working installation of [Haskell](https://www.haskell.org/platform/), 
-and the [cabal](https://www.haskell.org/cabal/) package manager and build system.
+To build <span style="font-variant:small-caps;">Haskell-Coop</span>, you need a working installation
+of [<span style="font-variant:small-caps;">Haskell</span>](https://www.haskell.org/platform/), 
+and the [<span style="font-variant:small-caps;">Cabal</span>](https://www.haskell.org/cabal/) package manager and build system.
 
 ## Building haskell-coop
 
@@ -33,7 +34,7 @@ The examples are typechecked with `ghci`.
 
 ## Entry points
 
-There are two main entry points to the library:
+There are two main entry points to the <span style="font-variant:small-caps;">Haskell-Coop</span> library:
 
 - `src/Control/Runner.hs` that implements a restricted form of effectful runners (without exceptions and signals). 
 - `src/Control/SignalRunner.hs` that implements the general form of effectful runners (with exceptions and signals).
