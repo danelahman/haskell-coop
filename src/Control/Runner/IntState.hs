@@ -10,7 +10,7 @@
 
 module Control.Runner.IntState (
   Nat(..), Addr(..),
-  State, get, put, 
+  State(..), get, put, 
   Memory, withNewRef, runSt
   ) where
 

@@ -12,7 +12,7 @@
 
 module Control.Runner.Ambients
   (
-  AmbFun, AmbVal, Amb, AmbEff, 
+  AmbFun, AmbVal, Amb(..), AmbEff, 
   getVal, applyFun,
   rebindVal, rebindFun,
   withAmbVal, withAmbFun,

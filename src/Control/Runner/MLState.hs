@@ -16,7 +16,7 @@
 
 module Control.Runner.MLState
   (
-  Ref, MLState,
+  Ref, MLState(..),
   alloc, (!), (=:=),
   mlRunner, mlInitialiser, mlFinaliser, mlTopLevel,
   Typeable

@@ -9,7 +9,7 @@
 
 module Control.Runner.FPState (
   Nat(..), MemShape(..), Memory(..), Addr(..),
-  State, get, put, fpRunner, fpTopLevel
+  State(..), get, put, fpRunner, fpTopLevel
   ) where
 
 import Control.Runner

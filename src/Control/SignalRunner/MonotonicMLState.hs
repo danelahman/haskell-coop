@@ -25,7 +25,7 @@
 
 module Control.SignalRunner.MonotonicMLState
   (
-  Ref, MonMLState, MonS(..), 
+  Ref, MonMLState(..), MonS(..), 
   alloc, (!), (=:=),
   monRunner, monInitialiser, monFinaliserVal, monFinaliserExc, monFinaliserSig, monTopLevel,
   Typeable

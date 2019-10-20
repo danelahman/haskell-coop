@@ -10,7 +10,7 @@
 
 module Control.Runner.IntMLState
   (
-  Ref, IntMLState,
+  Ref, IntMLState(..),
   alloc, (!), (=:=),
   intMlRunner, intMlInitialiser, intMlFinaliser, intMlTopLevel,
   Typeable

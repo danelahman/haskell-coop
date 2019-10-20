@@ -11,7 +11,7 @@
 
 module Control.Runner.MLFPStateFwd (
   Nat(..), MemShape(..), Footprint(..), Addr(..),
-  State, get, put, fpRunner, withFootprint
+  State(..), get, put, fpRunner, withFootprint
   ) where
 
 import Control.Runner

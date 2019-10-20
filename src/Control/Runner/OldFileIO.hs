@@ -6,7 +6,17 @@
 -- Experiments with File IO using a variety of runners.
 --
 
-module Control.Runner.OldFileIO where
+module Control.Runner.OldFileIO
+  (
+  FileIO(..), File(..), Cleaner(..),
+  fioRunner, fhRunner, fcRunner, fcClCoOps, fcOwRunner, 
+  ioFioInitialiser, ioFioFinaliser,
+  fioFhInitialiser, fioFhFinaliser,
+  fhFcInitialiser, fhFcFinaliser,
+  fhFcOwInitialiser, fhFcOwFinaliser,
+  fioFcInitialiser, fioFcFinaliser,
+  fioFcOwInitialiser, fioFcOwFinaliser
+  ) where
 
 import Control.Runner
 import System.IO

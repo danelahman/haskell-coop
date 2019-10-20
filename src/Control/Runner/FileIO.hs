@@ -8,8 +8,8 @@
 --
 
 module Control.Runner.FileIO (
-  FileIO, fOpenOS, fCloseOS, fReadOS, fWriteOS,
-  File, fRead, fWrite,
+  FileIO(..), fOpenOS, fCloseOS, fReadOS, fWriteOS,
+  File(..), fRead, fWrite,
   fioRunner, fhRunner, fcRunner,
   ioFioInitialiser, fioFhInitialiser, fhFcInitialiser,
   ioFioFinaliser, fioFhFinaliser, fhFcFinaliser,
