@@ -24,6 +24,7 @@ You can type:
 - `make` to locally build the Haskell-Coop library, generate documentation, and typecheck examples.
 - `make build` to locally build the Haskell-Coop library and generate documentation.
 - `make examples` to typecheck examples.
+- `make clean` to clean up.
 
 Building Haskell-Coop uses `cabal new-build` to locally build the library and all its dependencies,
 and to generate Haddock documentation. The generated documentation can be found in
