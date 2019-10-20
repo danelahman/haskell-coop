@@ -27,7 +27,7 @@ notes [What is algebraic about algebraic effects and handlers?](https://arxiv.or
 of these notes discusses ordinary runners of algebraic effects (also known in the literature as comodels of algebraic effects).
 
 The `User` and `Kernel` monad use internally the [freer-simple](http://hackage.haskell.org/package/freer-simple)
-implementation of a free monad on a signature of effects.
+implementation of a free monad on a signature of effects, namely, the `Eff` monad.
 -}
 module Control.Runner (
   User, Kernel, embedU, embedK, focus, performU, performK,
