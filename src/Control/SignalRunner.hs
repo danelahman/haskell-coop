@@ -40,26 +40,57 @@ module Control.SignalRunner (
   Zero, impossible, Member
   ) where
 
---
--- Tested with
---   http://hackage.haskell.org/package/freer-simple [v1.2.1.0]
--- variant of the Freer monad.
---
 import Control.Monad.Freer.Internal hiding (run)
-
 import Control.Monad.Except
 import Control.Monad.State
 
+-- | The monad that we use to model user computations that can perform algebraic
+-- operations given by effects in the signature @sig@ (using `performU`), raise
+-- exceptions of type @e@, and return values of type @a@. The algebraic operation
+-- calls will be implemented by some enveloping runner of type `Runner`.
 --
--- User monad modelling user computations waiting to be run
--- by some enveloping runner. We define this monad on top of the
--- Freer monad, with `sig` a signature of effects of type `[* -> *]`.
+-- The signature @sig@ has type @[* -> *]@, in other words, it is a list of effects.
+-- Exactly as in the [freer-simple](http://hackage.haskell.org/package/freer-simple)
+-- package, each such effect is meant to be given by a GADT whose constructors
+-- denote the "algebraic operations" associated with the given effect.
 --
--- The type `User sig a` captures the typing judgement
+-- Compared to the talk [Interacting with external resources using runners (aka comodels)](https://danel.ahman.ee/talks/chocola19.pdf),
+-- the our library currently does not support uniformly attaching an exception type to
+-- each of effects in the signature @sig@. Instead, the programmer is currently expected
+-- to model effects that can raise exceptions by typing relevant algebraic operations
+-- appropriately, and pass the exception as an `Either`-typed return value.
 --
---   Gamma  |-^sig  M  :  a ! e
+-- For instance, the effect of performing file IO could be described using
+-- the @FileIO@ effect, given by
 --
+-- > data FileIO :: * -> * where
+-- >   OpenFile  :: FilePath -> IOMode -> FileIO (Either Handle E)
+-- >   CloseFile :: Handle -> FileIO (Either () E)
+-- >   ReadFile  :: Handle -> FileIO (Either String E)
+-- >   WriteFile :: Handle -> String -> FileIO (Either () E)
 --
+-- where @E@ is a type of IO exceptions. For example, one plausible definition of @E@ could be
+--
+-- > data E where
+-- >   FileNotFound :: FilePath -> E
+-- >   InvalidFilehandle :: Handle -> E
+-- >   QuotaExceeded :: E
+-- >   IncorrectIOMode :: IOMode -> E
+-- >   FileHandleAlreadyClosed :: Handle -> E
+-- >   IOException :: E
+--
+-- As such, performing any of the file IO operation in one's code could either result
+-- in returning a successful return value in the left branch of `Either`, or raising
+-- an exception in @E@ by returning a value in the right branch of `Either`.
+--
+-- It is worthwhile to point out that some of the exceptions also carry data, which can be
+-- useful for debugging reasons, or for finalising resources in the `run` operation below.
+-- We also note that one could be flexible about which operations of an effect can raise
+-- exceptions and which cannot. After all, exceptions are just part of the typing of
+-- individual operations.
+--
+-- A user computation performing no other effects than file IO, potentially raising exceptions
+--  @e@, and returning values of type @a@ would then have type @User '[FileIO] e a@.
 newtype User sig e a =
   U (Eff sig (Either a e))
 
@@ -91,6 +122,17 @@ instance Monad (User sig e) where
 --
 --   Gamma  |-^sig  K  :  a ! e !! s @ c
 --
+
+-- | The monad that we use to model kernel computations. Analogously to user
+-- computations, kernel computations can perform algebraic operations given
+-- effects in the signature @sig@ (using `performK`), raise exceptions @e@,
+-- and return values of type @a@. But differently from user computations,
+-- kernel computations additionally have access to runtime state of type @c@,
+-- which they can read using `getEnv` and write with `setEnv`, and they can
+-- also send (kill) signals (using `kill`).
+--
+-- The primary use of kernel computations is to implement co-operations of
+-- runners, which in turn are then used to run user code using `run`.
 newtype Kernel sig e s c a =
   K (c -> (Eff sig (Either (Either a e,c) s)))
 
@@ -111,24 +153,15 @@ instance Monad (Kernel sig e s c) where
   return x = pure x
   k >>= f = bindK k f
 
---
--- Embedding a user computations in a larger signature of operations.
---
+-- | Embedding a user computation in a larger signature.
 embedU :: User sig e a -> User (eff ': sig) e a
 embedU (U m) = U (raise m)
 
---
--- Embedding a kernel computations in a larger signature of operations.
---
+-- | Embedding a kernel computation in a larger signature.
 embedK :: Kernel sig e s c a -> Kernel (eff ': sig) e s c a
 embedK (K k) = K (\ c -> raise (k c))
 
---
--- Focussing on a particular effect in a larger signature of operations.
---
--- Here the use of `impossible` in fact forces the set of kill signals 
--- of the given runner `fwdRunner` to be `Zero`.
---
+-- | Focussing on a particular effect in a larger signature.
 focus :: Member eff sig => User '[eff] e a -> User sig e a
 focus m =
   run
@@ -137,77 +170,84 @@ focus m =
     m
     (\ x () -> return x)
     (\ e () -> raiseU e)
-    impossible
+    impossible -- forces the set of kill signals of `fwdRunner` to be `Zero`
 
+-- | Performing an algebraic operation of the effect @eff@ in user code.
 --
--- Performing user operations while focussed on a single effect.
+-- For example, to perform a file read in user code one writes
 --
--- If working with a bigger signature, first focus on a single
--- effect before calling perform. This is a small price to
--- pay to get more intricate GADT-based signatures (such as
--- various kinds of state) to work conveniently. In most cases
--- focussing is limited to defining derived generic effects.
+-- > performU (ReadFile fileHandle) :: User '[FileIO] Zero (Either String E)
 --
--- Note: In the given implementation, operations are expected to
--- encode any exceptions they might raise in their output type
--- using, e.g., `Either`, and explicitly pattern-match at call
--- sites. As such, `performU` (and `performK`) do not raise any
--- exceptions in the User and Kernel monads, cf use of `Zero`.
---
--- In future, we hopefully also have some variant of exceptional
--- signatures working, see the bottom of the page of a sketch.
---
+-- Observe that the exception index in the type of `performU` is `Zero`,
+-- i.e., the empty type. This is so because, as noted earlier, the library
+-- does not attach exceptions to effects in the signature but requires the
+-- programmer to model them as return values of individual operations.
+-- However, we have found that in example programs this is not too troublesome,
+-- because in the end one usually exposes more human-readably wrapped
+-- generic effects to the programmer. Part of that wrapping is then pattern
+-- matching on the exception returned as a `Either`-typed value, and
+-- raising it as an exception proper in the `User` monad (with `raiseU`).
 performU :: eff a -> User '[eff] Zero a
 performU op = U (do x <- send op; return (Left x))
 
---
--- Generic user perform function used internally in this module.
---
+-- | Performing an algebraic operation of the effect @eff@ in user code.
 genPerformU :: Member eff sig => eff a -> User sig Zero a
 genPerformU op = U (do x <- send op; return (Left x))
 
---
--- Performing kernel operations while focussed on a single effect.
---
+-- | Performing an algebraic operation of the effect @eff@ in kernel code.
 performK :: eff a -> Kernel '[eff] Zero s c a
 performK op = K (\ c -> (do x <- send op; return (Left (Left x,c))))
 
---
--- Generic kernel perform function used internally in this module.
---
+-- | Performing an algebraic operation of the effect @eff@ in kernel code.
 genPerformK :: Member eff sig => eff a -> Kernel sig Zero s c a
 genPerformK op = K (\ c -> (do x <- send op; return (Left (Left x,c))))
 
+-- | Raising an exception of type @e@ in user code.
 --
--- Raising an exception in user computations.
+-- For instance, when working with file IO, @e@ could be the type
 --
+-- > data E where
+-- >   FileNotFound :: FilePath -> E
+-- >   InvalidFilehandle :: Handle -> E
+-- >   QuotaExceeded :: E
+-- >   IncorrectIOMode :: IOMode -> E
+-- >   FileHandleAlreadyClosed :: Handle -> E
+-- >   IOException :: E
+--
+-- that we discussed in the description of the `User` monad.
 raiseU :: e -> User sig e a
 raiseU e = U (return (Right e))
 
---
--- Raising an exception in kernel computations.
---
+-- | Raising an exception of type @e@ in user code.
 raiseK :: e -> Kernel sig e s c a
 raiseK e = K (\ c -> return (Left (Right e,c)))
 
+-- | Sending a (kill) signal of type @s@ in kernel code.
 --
--- Raising a kill signal in kernel computations.
+-- For instance, when working with file IO, @s@ could be the type
 --
+-- > data S where
+-- >   DiscDisconnected :: S
+-- >   IOError :: S
+--
+-- The role of signals is to indicate unavoidable, unrecoverable circumstances.
+-- If a signal is sent in a co-operation when running user code with `run`,
+-- the rest of the user code is killed off and control jumps to the finaliser
+-- for signals. This is in contrast with exceptions raised by co-operations,
+-- from which user code being run with `run` can recover from.
 kill :: s -> Kernel sig e s c a
 kill s = K (\ c -> return (Right s))
 
---
--- State-access operations for the kernel monad.
---
+-- | Reading runtime state of type @c@ in kernel code.
 getEnv :: Kernel sig e s c c
 getEnv = K (\ c -> return (Left (Left c,c)))
 
+-- | Writing runtime state of type @c@ in kernel code.
 setEnv :: c -> Kernel sig e s c ()
 setEnv c' = K (\ c -> return (Left (Left (),c')))
 
---
--- Exceptional syntax for user computations.
---
+-- | Exception handler for user code, based on Benton and Kennedy's
+-- [exceptional syntax](https://www.cambridge.org/core/journals/journal-of-functional-programming/article/exceptional-syntax/58206FB399EDC9F197A0D53BC46E4667).
 tryWithU :: User sig e a
          -> (a -> User sig e' b)
          -> (e -> User sig e' b)
@@ -219,9 +259,8 @@ tryWithU (U m) f g =
           (\ e -> let (U m') = g e in m')
           ex)
 
---
--- Exceptional syntax for kernel computations.
---
+-- | Exception handler for kernel code, based on Benton and Kennedy's
+-- [exceptional syntax](https://www.cambridge.org/core/journals/journal-of-functional-programming/article/exceptional-syntax/58206FB399EDC9F197A0D53BC46E4667).
 tryWithK :: Kernel sig e s c a
          -> (a -> Kernel sig e' s c b)
          -> (e -> Kernel sig e' s c b)
@@ -238,9 +277,7 @@ tryWithK (K k) f g =
          (\ s -> return (Right s))
          xs)
 
---
--- Executing a kernel computation inside user computations.
---
+-- | Context switch to execute a kernel computation in user mode.
 kernel :: Kernel sig e s c a
       -> c
       -> (a -> c -> User sig e' b)
@@ -258,9 +295,7 @@ kernel (K k) c f g h =
           (\ s -> let (U m) = h s in m)
           xs)
 
---
--- Executing a user computation inside kernel computations.
---
+-- | Context switch to execute a user computation in kernel mode.
 user :: User sig e a
       -> (a -> Kernel sig e' s c b)
       -> (e -> Kernel sig e' s c b)

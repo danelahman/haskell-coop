@@ -36,7 +36,7 @@ module Control.Runner (
   fwdRunner, run, pureTopLevel, topLevel, ioTopLevel, Member
   ) where
 
-import Control.Monad.Freer.Internal hiding (run) -- Tested with v1.2.1.0
+import Control.Monad.Freer.Internal hiding (run)
 
 -- | The monad that we use to model user computations that can perform algebraic
 -- operations given by effects in the signature @sig@ (using `performU`) and return 
@@ -120,11 +120,11 @@ performK op = KC (\ c -> do x <- send op; return (x,c))
 genPerformK :: Member eff sig => eff a -> Kernel sig c a
 genPerformK op = KC (\ c -> do x <- send op; return (x,c))
 
--- | Reading runtime state of type @c@.
+-- | Reading runtime state of type @c@ in kernel code.
 getEnv :: Kernel sig c c
 getEnv = KC (\ c -> return (c,c))
 
--- | Writing runtime state of type @c@.
+-- | Writing runtime state of type @c@ in kernel code.
 setEnv :: c -> Kernel sig c ()
 setEnv c' = KC (\ c -> return ((),c'))
 
