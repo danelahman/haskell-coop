@@ -16,10 +16,10 @@
 
 module Control.SignalRunner.SignalMLState
   (
-  Ref, MLState(..), S(..), 
+  Nat, Ref, MLState(..), S(..), Heap, 
   alloc, (!), deref, (=:=), assign,
   mlRunner, mlInitialiser, mlFinaliserVal, mlFinaliserExc, mlFinaliserSig, mlTopLevel,
-  addrOf, -- needed in MonotonicMLState
+  addrOf, Addr, -- needed in MonotonicMLState
   Typeable
   ) where
 

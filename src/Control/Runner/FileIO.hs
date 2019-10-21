@@ -9,7 +9,7 @@
 
 module Control.Runner.FileIO (
   FileIO(..), fOpenOS, fCloseOS, fReadOS, fWriteOS,
-  File(..), fRead, fWrite,
+  File(..), fRead, fWrite, FIOState, FHState, FCState, 
   fioRunner, fhRunner, fcRunner,
   ioFioInitialiser, fioFhInitialiser, fhFcInitialiser,
   ioFioFinaliser, fioFhFinaliser, fhFcFinaliser,

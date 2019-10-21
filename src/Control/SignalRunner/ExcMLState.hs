@@ -16,7 +16,7 @@
 
 module Control.SignalRunner.ExcMLState
   (
-  Ref, MLState(..), E(..), 
+  Ref, MLState(..), E(..), Heap, 
   alloc, (!), (=:=),
   mlRunner, mlInitialiser, mlFinaliserVal,
   mlFinaliserExc, mlFinaliserSig, mlTopLevel,
