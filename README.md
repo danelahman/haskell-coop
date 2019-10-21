@@ -50,9 +50,7 @@ Further documentation of the library can be found in individual modules.
 
 ## Acknowledgements
 
-![...](https://danel.ahman.ee/images/eu_flag.jpg)
-
-This project has received funding from the European Union’s Horizon 2020 research and innovation programme under the Marie Skłodowska-Curie grant agreement No 834146.
-
-This material is based upon work supported by the Air Force Office of Scientific Research under award number FA9550-17-1-0326.
-
+<table>
+      <tr><td>This project has received funding from the European Union’s Horizon 2020 research and innovation programme under the Marie Skłodowska-Curie grant agreement No 834146.</td><td><img src="https://danel.ahman.ee/images/eu_flag.jpg"></td></tr>
+      <tr><td>This material is based upon work supported by the Air Force Office of Scientific Research under award number FA9550-17-1-0326.</td><td></td></tr>
+</table>
