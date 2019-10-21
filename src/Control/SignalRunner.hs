@@ -46,8 +46,8 @@ import Control.Monad.State
 
 -- | The monad that we use to model user computations that can perform algebraic
 -- operations given by effects in the signature @sig@ (using `performU`), raise
--- exceptions of type @e@, and return values of type @a@. The algebraic operation
--- calls will be implemented by some enveloping runner of type `Runner`.
+-- exceptions of type @e@ (using `raiseU`), and return values of type @a@.
+-- The algebraic operation calls will be implemented by some enveloping runner of type `Runner`.
 --
 -- The signature @sig@ has type @[* -> *]@, in other words, it is a list of effects.
 -- Exactly as in the [freer-simple](http://hackage.haskell.org/package/freer-simple)
@@ -114,11 +114,11 @@ instance Monad (User sig e) where
 
 -- | The monad that we use to model kernel computations. Analogously to user
 -- computations, kernel computations can perform algebraic operations given
--- effects in the signature @sig@ (using `performK`), raise exceptions @e@,
--- and return values of type @a@. But differently from user computations,
--- kernel computations additionally have access to runtime state of type @c@,
+-- effects in the signature @sig@ (using `performK`), raise exceptions of type @e@
+-- (using `raiseK`), and return values of type @a@. But differently from user
+-- computations, kernel computations additionally have access to runtime state of type @c@,
 -- which they can read using `getEnv` and write with `setEnv`, and they can
--- also send (kill) signals (using `kill`).
+-- also send (kill) signals of type @s@ (using `kill`).
 --
 -- The primary use of kernel computations is to implement co-operations of
 -- runners, which in turn are then used to run user code using `run`.
