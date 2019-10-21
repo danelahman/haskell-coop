@@ -112,17 +112,6 @@ instance Monad (User sig e) where
   return x = pure x
   m >>= f = bindU m f
 
---
--- Kernel monad modelling kernel computations that can trigger
--- effects in `sig` and access runtime state of type `c`,
--- and raise exceptions in `e` and kill signals in `s`.
--- We use kernel computations to implement co-operations.
---
--- The type `Kernel sig e s c a` captures the typing judgement
---
---   Gamma  |-^sig  K  :  a ! e !! s @ c
---
-
 -- | The monad that we use to model kernel computations. Analogously to user
 -- computations, kernel computations can perform algebraic operations given
 -- effects in the signature @sig@ (using `performK`), raise exceptions @e@,
@@ -176,30 +165,31 @@ focus m =
 --
 -- For example, to perform a file read in user code one writes
 --
--- > performU (ReadFile fileHandle) :: User '[FileIO] Zero (Either String E)
+-- > performU (ReadFile fileHandle) :: User '[FileIO] e (Either String E)
 --
--- Observe that the exception index in the type of `performU` is `Zero`,
--- i.e., the empty type. This is so because, as noted earlier, the library
--- does not attach exceptions to effects in the signature but requires the
--- programmer to model them as return values of individual operations.
--- However, we have found that in example programs this is not too troublesome,
--- because in the end one usually exposes more human-readably wrapped
--- generic effects to the programmer. Part of that wrapping is then pattern
--- matching on the exception returned as a `Either`-typed value, and
--- raising it as an exception proper in the `User` monad (with `raiseU`).
-performU :: eff a -> User '[eff] Zero a
+-- Observe that @performU (ReadFile fileHandle)@ returns an exception of 
+-- type @E@ as an `Either`-typed value, rather than a raising a primitive exception.
+-- This is so because, as noted earlier, the library does not attach exceptions
+-- to effects in the signature but requires the programmer to model them as
+-- return values of individual operations. However, we have found that in
+-- example programs this is not too troublesome, because in the end one usually
+-- exposes more human-readably wrapped generic effects to the programmer.
+-- Part of that wrapping is then pattern matching on the exception returned as
+-- a `Either`-typed value, and raising it as an exception proper in the `User`
+-- monad (with `raiseU`), e.g., see the discussion in the description of `run`.
+performU :: eff a -> User '[eff] e a
 performU op = U (do x <- send op; return (Left x))
 
 -- | Performing an algebraic operation of the effect @eff@ in user code.
-genPerformU :: Member eff sig => eff a -> User sig Zero a
+genPerformU :: Member eff sig => eff a -> User sig e a
 genPerformU op = U (do x <- send op; return (Left x))
 
 -- | Performing an algebraic operation of the effect @eff@ in kernel code.
-performK :: eff a -> Kernel '[eff] Zero s c a
+performK :: eff a -> Kernel '[eff] e s c a
 performK op = K (\ c -> (do x <- send op; return (Left (Left x,c))))
 
 -- | Performing an algebraic operation of the effect @eff@ in kernel code.
-genPerformK :: Member eff sig => eff a -> Kernel sig Zero s c a
+genPerformK :: Member eff sig => eff a -> Kernel sig e s c a
 genPerformK op = K (\ c -> (do x <- send op; return (Left (Left x,c))))
 
 -- | Raising an exception of type @e@ in user code.
@@ -310,17 +300,18 @@ user (U m) f g =
 -- | Type of effectful runners that implement co-operations for the effects in
 -- signature @sig@, where each of the co-operations is a kernel computation that
 -- can perform algebraic operations given by (external) effects in the signature
--- @sig'@, send (kill) signals @s@, and access runtime state of type @c@. Exactly
--- as in the description of `performU`, the exception index in the type of each
--- co-operation is again `Zero`, i.e., the empty type, because any exceptions that
--- a co-operation would raise one needs to currently return as an `Either`-typed value.
+-- @sig'@, send (kill) signals @s@, and access runtime state of type @c@. The
+-- exception index in the type of each co-operation is `Zero`, i.e., the empty
+-- type, because currently we do not attach exceptions to effects in signatures.
+-- As a result, any exceptions have to be returned as `Either`-typed values.
+-- For example, see the discussion in the descriptions of `User` and `performU`.
 --
 -- Given an effect @eff :: * -> *@, the corresponding co-operations are given by a
 -- function of type
 --
 -- > forall b . eff b -> Kernel sig' c b
 --
--- In other words, by a mapping of every algebraic operation of the effect @eff@
+-- in other words, by a mapping of every algebraic operation of the effect @eff@
 -- (i.e., each of its constructors) to a corresponding kernel computation.
 data Runner sig sig' s c where
   Empty :: Runner '[] sig' s c
@@ -486,30 +477,21 @@ runAux r c (U (E op q)) f g h =
 -- for performing @OpenFile@, @Write@, and @CloseFile@ operations, defined as follows
 --
 -- > open fn m =
--- >   tryWithU
--- >     (performU (OpenFile fn m))
--- >     (\ xe -> case xe of
--- >              Left x -> return x
--- >              Right e -> raiseU e)
--- >     impossible                      :: User '[FileIO] E Handle
+-- >   do xe <- performU (OpenFile fn m);
+-- >      either (\ x -> return x) (\ e -> raiseU e) xe
+-- > :: User '[FileIO] E Handle
 --
--- > write s =
--- >   tryWithU
--- >     (performU (Write s))
--- >     (\ xe -> case xe of
--- >              Left x -> return x
--- >              Right e -> raiseU e)
--- >     impossible                       :: User '[WriteIO] E ()
+-- > write fn m =
+-- >   do xe <- performU (Write s);
+-- >      either (\ x -> return x) (\ e -> raiseU e) xe
+-- > :: User '[WriteIO] E ()
 --
 -- > close fh =
--- >   tryWithU
--- >     (performU (CloseFile fsh))
--- >     (\ xe -> case xe of
--- >              Left x -> return x
--- >              Right e -> raiseU e)
--- >     impossible                       :: User '[FileIO] E ()
+-- >   do xe <- performU (CloseFile fh);
+-- >      either (\ x -> return x) (\ e -> raiseU e) xe
+-- > :: User '[FileIO] E ()
 --
--- Observe these generic effects pattern-matches on the `Either`-typed value returned 
+-- Observe that these generic effects pattern-matches on the `Either`-typed value returned 
 -- by `performU`, and raise any exception values as exceptions proper with `raiseU`.
 --
 -- Above we initialise the runtime state for the write-only file access runner

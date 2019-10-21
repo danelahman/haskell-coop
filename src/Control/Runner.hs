@@ -147,7 +147,7 @@ user (UC m) f =
 --
 -- > forall b . eff b -> Kernel sig' c b
 --
--- In other words, by a mapping of every algebraic operation of the effect @eff@
+-- in other words, by a mapping of every algebraic operation of the effect @eff@
 -- (i.e., each of its constructors) to a corresponding kernel computation.
 data Runner sig sig' c where
   Empty :: Runner '[] sig' c
