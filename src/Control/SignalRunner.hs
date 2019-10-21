@@ -307,47 +307,75 @@ user (U m) f g =
                  (\ e -> let (K k) = g e in k c)
                  xe)
 
+-- | Type of effectful runners that implement co-operations for the effects in
+-- signature @sig@, where each of the co-operations is a kernel computation that
+-- can perform algebraic operations given by (external) effects in the signature
+-- @sig'@, send (kill) signals @s@, and access runtime state of type @c@. Exactly
+-- as in the description of `performU`, the exception index in the type of each
+-- co-operation is again `Zero`, i.e., the empty type, because any exceptions that
+-- a co-operation would raise one needs to currently return as an `Either`-typed value.
 --
--- A runner is simply a list of co-operations, where the first
--- argument of CoOps requires a co-operation for each operation
--- in the given effect `eff :: * -> *`, e.g., for `FRead`.
+-- Given an effect @eff :: * -> *@, the corresponding co-operations are given by a
+-- function of type
 --
+-- > forall b . eff b -> Kernel sig' c b
+--
+-- In other words, by a mapping of every algebraic operation of the effect @eff@
+-- (i.e., each of its constructors) to a corresponding kernel computation.
 data Runner sig sig' s c where
   Empty :: Runner '[] sig' s c
   CoOps :: (forall b . eff b -> Kernel sig' Zero s c b)
         -> Runner sig sig' s c-> Runner (eff ': sig) sig' s c
 
+-- | Make a runner for a single effect @eff@ by providing co-operations implementing
+-- each of its algebraic operations.
+--
+-- For instance, a runner whose runtime state carries a file handle and that
+-- implements a co-operation for write-only file access could be given by
+--
+-- > mkRunner (\ (Write s) -> do fh <- getEnv; performK (WriteFile fh s)) :: Runner '[WriteIO] '[FileIO] S (Either Handle E)
+--
+-- where we assume that the effect @eff@ is given by
+--
+-- > data WriteIO :: * -> * where
+-- >   Write :: String -> FileIO (Either () E)
+--
+-- where @E@ is some type of IO exceptions (e.g., see the description of `raiseU`), and
+-- where @S@ is some type of IO signals (e.g., containing a @DiskDisconnected@ signal
+-- to model the possibility of a remote disk getting disconnected unexpectedly).
 mkRunner :: (forall b . eff b -> Kernel sig Zero s c b)
          -> Runner '[eff] sig s c
 mkRunner coops = CoOps coops Empty
 
---
--- Empty runner and union of runners.
---
+-- | Runner for the empty signature.
 emptyRunner :: Runner '[] sig' s c
 emptyRunner = Empty
 
+-- | The (disjoint) union of two signatures.
 type family SigUnion (sig :: [* -> *]) (sig' :: [* -> *]) :: [* -> *] where 
   SigUnion '[] sig' = sig'
   SigUnion (eff ': sig) sig' = eff ': (SigUnion sig sig')
 
+-- | Taking the union of (the co-operations of) two runners with the same
+-- external signature @sig''@, (kill) signals @s@, and runtime state @c@.
+-- The resulting runner implements co-operations for the union of the given signatures.
+--
+-- The intended use of `unionRunners` is to build a runner for a composite
+-- signature from runners for individual effects given by `mkRunner`.
 unionRunners :: Runner sig sig'' s c -> Runner sig' sig'' s c
              -> Runner (SigUnion sig sig') sig'' s c
 unionRunners Empty r' = r'
 unionRunners (CoOps coops r) r' =
   CoOps coops (unionRunners r r')
 
---
--- Embedding a runner in a larger signature of operations.
---
+-- | Embedding a runner in a larger external signature.
 embedRunner :: Runner sig sig' s c -> Runner sig (eff ': sig') s c
 embedRunner Empty = Empty
 embedRunner (CoOps coops r) =
   CoOps (\ op -> embedK (coops op)) (embedRunner r)
 
---
--- Extending the carrier of a runner with some type/set.
---
+-- | Extending the runtime state with an additional component,
+-- which the co-operations of the resulting runner keep unchanged.
 extendRunner :: Runner sig sig' s c' -> Runner sig sig' s (c,c')
 extendRunner Empty = Empty
 extendRunner (CoOps coops r) =
@@ -359,9 +387,19 @@ extendRunner (CoOps coops r) =
                           xs))
         (extendRunner r)
 
+-- | Pairing two runners with the same external signature @sig''@
+-- but with possibly different runtime state types @c@ and @c'@. The
+-- resulting runner implements co-operations for the disjoint union 
+-- of the given signatures, by executing first runner's co-operations 
+-- on the first part of the composite runtime state, and the second
+-- runner's co-operations on the second part of the composite state.
 --
--- Pairing two runners in the same signature of operations.
+-- In other words, the resulting runner runs the given runners
+-- side-by-side, in a kind of horizontal composition.
 --
+-- The intended use of `pairRunners` is to construct n-ary combinations
+-- of individual runners, e.g., by combining some number of file IO
+-- runners with some number of runners implementing ML-style state.
 pairRunners :: Runner sig sig'' s c -> Runner sig' sig'' s c'
             -> Runner (SigUnion sig sig') sig'' s (c,c')
 pairRunners Empty r' = extendRunner r'
@@ -374,23 +412,11 @@ pairRunners (CoOps coops r) r' =
                           xs))
         (pairRunners r r')
 
---
--- Runner that forwards all co-operations to its runtime.
---
+-- | Runner that forwards all of its co-operations to some enveloping runner.
 fwdRunner :: Member eff sig => Runner '[eff] sig s c
 fwdRunner = CoOps genPerformK Empty
 
---
--- The
---
---  using C @ m_init
---  run m
---  finally { return x @ c -> m_val ;
---            raise  e @ c -> m_exc ;
---            kill   s     -> m_sig }
---
--- construct for initialising, running, and finalising a user computation.
---
+-- | Running a single algebraic operation as a kernel computation using the given runner.
 runOp :: Runner sig sig' s c -> Union sig b -> Kernel sig' Zero s c b
 runOp Empty _ =
   error "this should not have happened"
@@ -399,6 +425,9 @@ runOp (CoOps coop coops) u =
     Right o -> coop o
     Left u -> runOp coops u
 
+-- | Auxiliary operation for running user computations using a given runner in which
+-- the initial runtime state is initialised by a value rather than an effectful user
+-- computation as in `run`.
 runAux :: Runner sig sig' s c
        -> c
        -> User sig e a
@@ -416,40 +445,129 @@ runAux r c (U (E op q)) f g h =
     (\ e c' -> impossible e)
     (\ s -> h s)
 
+-- | A programming construct to run user code using a runner with guaranteed finalisation.
+--
+-- The 1st argument (of type @Runner sig sig' c@) is the given runner.
+--
+-- The 2nd argument (of type @User sig' e' c@) is a user computation that produces an initial
+-- value for the runtime state that the runner operates on.
+--
+-- The 3rd argument (of type @User sig e a@) is the user computation that we are running
+-- using the given runner. Observe that this user computation can only perform the
+-- algebraic operations for the effects in the signature @sig@ implemented by the runner.
+-- It cannot directly perform algebraic operations from the (external) signature @sig'@.
+-- It can only do so if the runner explicitly forwards the needed algebraic operations.
+--
+-- The 4th argument (of type @a -> c -> User sig' e' b@) is a user computation that
+-- finalises for return values. Notice that in addition to having access to return values,
+-- it can also access the final value of the runtime state, so as to perform cleanup.
+--
+-- The 5th argument (of type @e -> c -> User sig' e' b@) is a user computation that
+-- finalises for exceptions. As with the finaliser for return values, this computation
+-- also has access to the final value of the rutime state, so as to perform cleanup.
+--
+-- The 6th argument (of type @s -> User sig' e' b@) is a user computation that
+-- finalises for (kill) signals. In contrast witht the finalisers for return values and
+-- exceptions, this computation does not have access to the final runtime state.
+--
+-- For instance, we can run a simple user computation using the write-only file access
+-- runner defined in the description of `mkRunner` as follows
+--
+-- > run
+-- >   (mkRunner (\ (Write s) -> do fh <- getEnv; performK (WriteFile fh s)))
+-- >   (open "hello.txt" WriteMode)
+-- >   (write "Hello, world."; write "Hello, again.")
+-- >   (\ x fh -> close fh; return x)
+-- >   (\ e fh -> close fh; raiseU e)
+-- >   (\ s -> return ())
+-- >   :: User '[FileIO] E () 
+--
+-- where @open@, @write@, and @close@ are the human-readably wrapped generic effect
+-- for performing @OpenFile@, @Write@, and @CloseFile@ operations, defined as follows
+--
+-- > open fn m =
+-- >   tryWithU
+-- >     (performU (OpenFile fn m))
+-- >     (\ xe -> case xe of
+-- >              Left x -> return x
+-- >              Right e -> raiseU e)
+-- >     impossible                      :: User '[FileIO] E Handle
+--
+-- > write s =
+-- >   tryWithU
+-- >     (performU (Write s))
+-- >     (\ xe -> case xe of
+-- >              Left x -> return x
+-- >              Right e -> raiseU e)
+-- >     impossible                       :: User '[WriteIO] E ()
+--
+-- > close fh =
+-- >   tryWithU
+-- >     (performU (CloseFile fsh))
+-- >     (\ xe -> case xe of
+-- >              Left x -> return x
+-- >              Right e -> raiseU e)
+-- >     impossible                       :: User '[FileIO] E ()
+--
+-- Observe these generic effects pattern-matches on the `Either`-typed value returned 
+-- by `performU`, and raise any exception values as exceptions proper with `raiseU`.
+--
+-- Above we initialise the runtime state for the write-only file access runner
+-- with a file handle pointing to @"hello.txt"@, by performing a file open
+-- operation that would be implemented by some enveloping runner. The user
+-- computation that we run with said runner simply performs two calls to
+-- the @Write@ operation. Finally, the finaliser for return values closes the
+-- file handle and passes on the return value unchanged; the finaliser for
+-- exceptions also closes the file handle, but re-raises the exception; and
+-- the finaliser for signals simply returns the unit value, the intuition
+-- being that once a signal is sent, there are no resources to finalise.
+--
+-- Observe how this write-only file access runner hides the file handle from
+-- the user code being run (the latter can only perform the @Write@ operation
+-- that takes only a string as an argument and not the file handle itself).
+-- Furthermore, the semantics of the `run` operation ensures that one of the 
+-- finalisers is always called exactly once, ensuring a correct cleanup of the
+-- file handle resource, as desired. Though this last part has to be taken with
+-- a pinch of salt. If a signal is raised in a co-operation of some outer, enveloping
+-- runner that is used to run the above code-snippet, then control jumps to the
+-- finalisation block of this outer `run` operation, and the inner code gets killed.
+--
+-- In the context of the
+-- talk [Interacting with external resources using runners (aka comodels)](https://danel.ahman.ee/talks/chocola19.pdf),
+-- the `run` operation corresponds to the following programming construct
+--
+-- > using R @ M_init
+-- > run M
+-- > finally {
+-- >   return x @ c -> M_return,
+-- >   (raise e @ c -> M_e)_{e \in E},
+-- >   (kill s -> M_s)_{s \in S}}
 run :: Runner sig sig' s c
     -> User sig' e' c
     -> User sig e a
-     -> (a -> c -> User sig' e' b)
-     -> (e -> c -> User sig' e' b)
-     -> (s -> User sig' e' b)
+    -> (a -> c -> User sig' e' b)
+    -> (e -> c -> User sig' e' b)
+    -> (s -> User sig' e' b)
     -> User sig' e' b
 run r i m f g h =
   do c <- i; runAux r c m f g h
 
---
--- Running user computation in a top-level pure containers.
---
+-- | A top-level for running user computations for the empty signature as pure, effect-free values.
 pureTopLevel :: User '[] Zero a -> a
 pureTopLevel (U (Val (Left x))) = x
 pureTopLevel _ = error "this should not have happened"
 
---
--- Running a user computation in a top-level container (monad).
---
---
+-- | A top-level for running user computations as Haskell's monadic computations.
 topLevel :: Monad m => User '[m] Zero a -> m a
 topLevel (U m) = runM (fmap (either id impossible) m)
 
---
--- Short-hand for running user computation ina top-level IO container.
---
+-- | A short-hand for top-level running of user computations in the IO monad, defined using `topLevel`.
 ioTopLevel :: User '[IO] Zero a -> IO a
 ioTopLevel = topLevel
         
---
--- Empty type and its eliminator.
---
+-- | The empty type that does not have any constructors.
 data Zero
 
+-- | The elimination form for the empty type.
 impossible :: Zero -> a
 impossible x = case x of {}

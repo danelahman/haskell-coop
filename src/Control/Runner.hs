@@ -207,10 +207,10 @@ extendRunner (CoOps coops r) =
         (extendRunner r)
 
 -- | Pairing two runners with the same external signature @sig''@
--- but with possibly different runtime states @c@ and @c'@. The
--- resulting runner implements co-operations for the union of the
--- given signatures, by executing first runner's co-operations on
--- the first part of the composite runtime state, and the second
+-- but with possibly different runtime state types @c@ and @c'@. The
+-- resulting runner implements co-operations for the disjoint union 
+-- of the given signatures, by executing first runner's co-operations 
+-- on the first part of the composite runtime state, and the second
 -- runner's co-operations on the second part of the composite state.
 --
 -- In other words, the resulting runner runs the given runners
@@ -242,7 +242,7 @@ runOp (CoOps coop coops) u =
     Left u -> runOp coops u
 
 -- | Auxiliary operation for running user computations using a given runner in which
--- the initial kernel state is initialised by a value rather than an effectful user
+-- the initial runtime state is initialised by a value rather than an effectful user
 -- computation as in `run`.
 runAux :: Runner sig sig' c
        -> c
@@ -267,12 +267,12 @@ runAux r c (UC (E u q)) mf =
 -- It cannot directly perform algebraic operations from the (external) signature @sig'@.
 -- It can only do so if the runner explicitly forwards the needed algebraic operations.
 --
--- The 4th argument (of type @(a -> c -> User sig' b@) is a user computation that
+-- The 4th argument (of type @a -> c -> User sig' b@) is a user computation that
 -- finalises for return values. Notice that in addition to having access to return values,
 -- it can also access the final value of the runtime state, so as to perform cleanup.
 --
 -- For instance, we can run a simple user computation using the write-only file access
--- runner defined above as follows
+-- runner defined in the description of `mkRunner` as follows
 --
 -- > run
 -- >   (mkRunner (\ (Write s) -> do fh <- getEnv; performK (WriteFile fh s)))
