@@ -46,7 +46,7 @@ Example uses of these runners can be found in `examples/without_signals/` and `e
 
 ## Further documentation
 
-Further documentation of the library can be found in individual modules.
+Further documentation of the Haskell-Coop library can be found in its individual modules.
 
 ## Acknowledgements
 
