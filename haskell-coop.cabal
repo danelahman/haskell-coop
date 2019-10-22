@@ -39,15 +39,17 @@ library
   default-extensions:
     DataKinds,
     DeriveFunctor,
-    GADTs,
-    GeneralizedNewtypeDeriving,
-    RankNTypes,
-    TypeFamilies,
-    TypeOperators,
     EmptyCase,
     FlexibleContexts,
+    GADTs,
+    GeneralizedNewtypeDeriving,
+    KindSignatures,
     PolyKinds,
-    KindSignatures
+    RankNTypes,
+    ScopedTypeVariables,
+    TypeApplications,
+    TypeFamilies,
+    TypeOperators
   build-depends:
     base >=4.12 && <4.13,
     freer-simple >=1.2 && <1.3,
