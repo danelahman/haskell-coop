@@ -124,10 +124,6 @@ intMLCoOps (Assign r x) =
 intMLRunner :: Runner '[IntMLState] sig Heap
 intMLRunner = mkRunner intMLCoOps
 
---
--- Top-Level running of the ML-style memory.
---
-
 -- | Initialiser for the runner `intMlRunner` that
 -- initialises the heap with the empty partial map,
 -- and sets the next address to be allocated to @Z@.
