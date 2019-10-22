@@ -6,6 +6,17 @@
 -- Combination of the runners for File IO and ML-style state.
 --
 
+{-|
+Module      : Control.FileIOAndMLState
+Description : Combination of file IO and ML-style state, using the horizontal composition of runners
+Copyright   : (c) Danel Ahman, 2019
+License     : MIT
+Maintainer  : danel.ahman@eesti.ee
+Stability   : experimental
+
+This module uses the horizontal combination of runners (`pairRunners`) to combine 
+the file IO runners from `FileIO` and the ML-style state runner from `MLState`.
+-}
 module Control.Runner.FileIOAndMLState
   (
   withFile, ioMltopLevel
@@ -22,6 +33,9 @@ import System.IO hiding (withFile)
 --
 -- Currently limited to the use of one file at a time.
 --
+
+-- | A variant of the with-file construct that runs user code that can
+-- perform effects both from the `File` and `MLState` effects.
 withFile :: FilePath -> User '[File,MLState] a -> User '[IO,MLState] a
 withFile fn c =
   run
@@ -37,9 +51,8 @@ withFile fn c =
     )
     (\ x _ -> return x)
 
---
--- Top-level running of file IO plus ML-style state.
---
+-- | Top level for running user code that can perform
+-- both `IO` and `MLState` effects.
 ioMltopLevel :: User '[IO,MLState] a -> IO a
 ioMltopLevel m =
   ioTopLevel
