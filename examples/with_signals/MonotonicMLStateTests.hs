@@ -1,14 +1,21 @@
 {-# LANGUAGE DataKinds #-}
 
---
--- Tests for the monotonic state runner in `MonotonicMLState`.
---
--- In these examples, the runner might raise a kill signal
--- (i)  if one tries to dereference a non-existent memory location;
---      this is inherited from the runner in `SignalMLState`, or
--- (ii) if one tries to assign while violating monotonicity.
---
+{-|
+Module      : MonotonicMLStateTests
+Description : Example use cases of the runner for ML-style state from `Control.SignalRunner.MonotonicMLState`
+Copyright   : (c) Danel Ahman, 2019
+License     : MIT
+Maintainer  : danel.ahman@eesti.ee
+Stability   : experimental
 
+This module provides example use cases of the runner 
+for ML-style state from `Control.SignalRunner.MonotonicMLState`.
+
+In these examples, the runner might raise a kill signal
+(i)  if one tries to dereference a non-existent memory location;
+     this is inherited from the runner in `SignalMLState`, or
+(ii) if one tries to assign while violating monotonicity.
+-}
 module MonotonicMLStateTests where
 
 import Control.SignalRunner

@@ -2,23 +2,30 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 
---
--- Experiments with a runner for simple 2-level state, 
--- where the bigger state has 2 locations and the smaller
--- state has 1 location, and a runner mediates between them.
---
+{-|
+Module      : TwoLevelStateTest
+Description : Example use of runners on a simple two-location integer-valued state
+Copyright   : (c) Danel Ahman, 2019
+License     : MIT
+Maintainer  : danel.ahman@eesti.ee
+Stability   : experimental
 
+This module provides an example use of runners on a simple two-location 
+integer-valued state, showing how runners can be used to "focus" on a 
+fraction of some bigger external resource, in this case on one of the 
+two memory locations of the `BigState` effect.
+-}
 module TwoLevelStateTest where
 
 import Control.Runner
 
-data BigState :: * -> * where
+data BigState a where
   Get1 :: BigState Int
   Put1 :: Int -> BigState ()
   Get2 :: BigState String
   Put2 :: String -> BigState ()
 
-data SmallState :: * -> * where
+data SmallState a where
   Get :: SmallState Int
   Put :: Int -> SmallState ()
 
@@ -86,4 +93,4 @@ bigStateComp =
     )
     bigStateFinally
 
-test = pureTopLevel bigStateComp
+test = pureTopLevel bigStateComp -- expected result (49,"new value")

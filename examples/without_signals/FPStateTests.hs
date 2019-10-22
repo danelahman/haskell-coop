@@ -1,10 +1,17 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 
---
--- Example tests for the footprint-based state runner in FPState.
---
+{-|
+Module      : FPStateTests
+Description : Example use cases of the footprint-based runner for state from `Control.Runner.FPState`
+Copyright   : (c) Danel Ahman, 2019
+License     : MIT
+Maintainer  : danel.ahman@eesti.ee
+Stability   : experimental
 
+This module provides example use cases of the footprint-based 
+runners for state from `Control.Runner.FPState`.
+-}
 module FPStateTests where
 
 import Control.Runner

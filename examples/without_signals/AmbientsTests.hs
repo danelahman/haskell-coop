@@ -3,10 +3,17 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 
---
--- Tests for ambient values and ambient functions implemented as a runner in Ambients.
---
+{-|
+Module      : AmbientsTests
+Description : Example use cases of the runner for ambient values and ambient functions from `Control.Runner.Ambients`
+Copyright   : (c) Danel Ahman, 2019
+License     : MIT
+Maintainer  : danel.ahman@eesti.ee
+Stability   : experimental
 
+This module provides some example use cases of the runner for
+ambient values and ambient functions from `Control.Runner.Ambients`.
+-}
 module AmbientsTests where
 
 import Control.Runner

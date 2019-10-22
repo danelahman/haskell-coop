@@ -2,10 +2,17 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 
---
--- Example tests for the ML-style state runner in MLState.
---
+{-|
+Module      : MLStateTests
+Description : Example use cases of the runner for ML-style state from `Control.Runner.MLState`
+Copyright   : (c) Danel Ahman, 2019
+License     : MIT
+Maintainer  : danel.ahman@eesti.ee
+Stability   : experimental
 
+This module provides example use cases of the runner 
+for ML-style state from `Control.Runner.MLState`.
+-}
 module MLStateTests where
 
 import Control.Runner

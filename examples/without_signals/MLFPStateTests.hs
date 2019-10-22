@@ -1,10 +1,17 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 
---
--- Example tests for running programs only on a footprint of the whole ML-style memory.
---
+{-|
+Module      : MLFPStateTests
+Description : Example use cases of the runner for footprint-based use of ML-style state from `Control.Runner.MLFPState`
+Copyright   : (c) Danel Ahman, 2019
+License     : MIT
+Maintainer  : danel.ahman@eesti.ee
+Stability   : experimental
 
+This module provides example use cases of the runner for footprint-based 
+use of ML-style state from `Control.Runner.MLFPState`.
+-}
 module MLFPStateTests where
 
 import Control.Runner

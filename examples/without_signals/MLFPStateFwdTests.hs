@@ -1,15 +1,17 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 
---
--- Example tests for running programs only on a footprint of the whole ML-style memory.
---
--- Here we use the variant of the footprint-based memory that internally only stores
--- the corresponding ML-style references and immediately delegates/forwards all get  
--- and put operations to the external MLState world (this is in contrast to the 
--- transactional variant of ML-style memory in MLFPState and MLFPStateTests).
---
+{-|
+Module      : MLFPStateFwdTests
+Description : Example use cases of the runner for footprint-based use of ML-style state from `Control.Runner.MLFPStateFwd`
+Copyright   : (c) Danel Ahman, 2019
+License     : MIT
+Maintainer  : danel.ahman@eesti.ee
+Stability   : experimental
 
+This module provides example use cases of the runner for footprint-based 
+use of ML-style state from `Control.Runner.MLFPStateFwd`.
+-}
 module MLFPStateFwdTests where
 
 import Control.Runner

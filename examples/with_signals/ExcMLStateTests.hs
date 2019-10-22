@@ -1,17 +1,24 @@
 {-# LANGUAGE DataKinds #-}
 
---
--- Example tests for the ML-style state runner in ExcMLState.
---
--- In this example, the runner might raise an exception
--- if one tries to dereference a non-existent memory location.
---
--- For instance, in `test5` and `test8` below we deliberately
--- leak references out of an `mlTopLevel` block and feed them
--- to the next such block, where the references of course do 
--- not exist any more in the heap (that's initialised empty).
---
+{-|
+Module      : ExcMLStateTests
+Description : Example use cases of the runner for ML-style state from `Control.SignalRunner.ExcMLState`
+Copyright   : (c) Danel Ahman, 2019
+License     : MIT
+Maintainer  : danel.ahman@eesti.ee
+Stability   : experimental
 
+This module provides example use cases of the runner 
+for ML-style state from `Control.SignalRunner.ExcMLState`.
+
+In this example, the runner might raise an exception
+if one tries to dereference a non-existent memory location.
+
+For instance, below we deliberately leak references out of 
+an `mlTopLevel` block and feed them to the next such block, 
+where the references of course do not exist any more in the heap
+(that's initialised empty), and cause an exception to be raised.
+-}
 module ExcMLStateTests where
 
 import Control.SignalRunner

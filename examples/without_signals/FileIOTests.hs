@@ -2,10 +2,17 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 
---
--- Example tests for the file-runner in FileIO.
---
+{-|
+Module      : FileIOTests
+Description : Example use cases of the runners for file IO from `Control.Runner.FileIO`
+Copyright   : (c) Danel Ahman, 2019
+License     : MIT
+Maintainer  : danel.ahman@eesti.ee
+Stability   : experimental
 
+This module provides some example use cases of the 
+runners for file IO from `Control.Runner.FileIO`.
+-}
 module FileIOTests where
 
 import Control.Runner

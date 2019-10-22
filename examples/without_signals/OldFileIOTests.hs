@@ -2,10 +2,17 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 
---
--- Example tests for the file-runners in OldFileIO.
---
+{-|
+Module      : OldFileIOTests
+Description : Example use cases of the runners for file IO from `Control.Runner.OldFileIO`
+Copyright   : (c) Danel Ahman, 2019
+License     : MIT
+Maintainer  : danel.ahman@eesti.ee
+Stability   : experimental
 
+This module provides some example use cases of the 
+runners for file IO from `Control.Runner.OldFileIO`.
+-}
 module OldFileIOTests where
 
 import Control.Runner

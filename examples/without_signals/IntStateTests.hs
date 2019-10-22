@@ -1,9 +1,16 @@
 {-# LANGUAGE DataKinds #-}
 
---
--- Example tests for the integer-state runners in IntState.
---
+{-|
+Module      : IntStateTests
+Description : Example use cases of the runner for integer-valued state from `Control.Runner.IntState`
+Copyright   : (c) Danel Ahman, 2019
+License     : MIT
+Maintainer  : danel.ahman@eesti.ee
+Stability   : experimental
 
+This module provides example use cases of the runner for 
+integer-valued state from `Control.Runner.IntState`.
+-}
 module IntStateTests where
 
 import Control.Runner

@@ -1,9 +1,16 @@
 {-# LANGUAGE DataKinds #-}
 
---
--- Example tests for the combination of file IO and ML-style state.
---
+{-|
+Module      : FileIOAndMLStateTests
+Description : Example use cases of the combination of file IO and ML-style state from `Control.Runner.FileIOAndMLState`
+Copyright   : (c) Danel Ahman, 2019
+License     : MIT
+Maintainer  : danel.ahman@eesti.ee
+Stability   : experimental
 
+This module provides some example use cases of the combination of 
+file IO and ML-style state from `Control.Runner.FileIOAndMLState`.
+-}
 module FileIOAndMLStateTests where
 
 import Control.Runner
