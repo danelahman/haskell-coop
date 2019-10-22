@@ -6,14 +6,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
---
--- ML-style state implemented using runners, supporting allocation
--- lookup, and assignment of memory references. Using polymorphism
--- provided by Haskell, we store values with arbitrary types, though
--- we limit ourselves to storing Typable values, so as to be able
--- to use typecasting as a means for deciding type equality.
---
-
 {-|
 Module      : Control.SignalRunner.ExcMLState
 Description : Runner for general ML-style state (supporting allocation, dereferencing, and assignment)
@@ -90,7 +82,7 @@ instance Show (Ref a) where
 addrOf :: Ref a -> Addr
 addrOf (R r) = r
 
--- | Memory if a partial map from references to `Typeable` values.
+-- | Memory is a partial map from references to `Typeable` values.
 type Memory = forall a . (Typeable a) => Ref a -> Maybe a
 
 -- | Type of heaps. These comprise a partial map from
@@ -128,7 +120,7 @@ heapAlloc h init =
            nextAddr = S (nextAddr h) })
            
 -- | An effect for general ML-style state.
-data MLState :: * -> * where
+data MLState a where
   -- | Algebraic operation for allocating a fresh memory reference.
   Alloc  :: (Typeable a) => a -> MLState (Ref a)
   -- | Algebraic operation for dereferencing a memory reference,
@@ -196,20 +188,20 @@ mlRunner = mkRunner mlCoOps
 mlInitialiser :: User sig Zero Heap
 mlInitialiser = return (H { memory = \ _ -> Nothing , nextAddr = Z })
 
--- | Return values finaliser for the runner `mlRunner` 
--- that discards the final value of the heap, and simply
+-- | Finaliser for return values for the runner `mlRunner`, 
+-- which discards the final value of the heap, and simply
 -- passes on the return value.
 mlFinaliserVal :: a -> Heap -> User sig Zero a
 mlFinaliserVal x _ = return x
 
--- | Exceptions finaliser for the runner `mlRunner` 
--- that discards the final value of the heap, and 
+-- | Finaliser for exceptions for the runner `mlRunner`, 
+-- which discards the final value of the heap, and 
 -- simply raises a Haskell runtime error to signify
 -- that an uncaught exception reached the top level.
 mlFinaliserExc :: E -> Heap -> User sig Zero a
 mlFinaliserExc e _ = error ("exception reached top level (" ++ show e ++ ")")
 
--- | Signals finaliser for the runner `mlRunner` 
+-- | Finaliser for signals for the runner `mlRunner`, 
 -- which is vacuously defined because there are
 -- no signals (the signals index is `Zero`).
 mlFinaliserSig :: Zero -> User sig Zero a

@@ -57,7 +57,7 @@ data Ref a where
 addrOf :: Ref a -> Addr
 addrOf (R r) = r
 
--- | Memory if a partial map from references to `Typeable` values.
+-- | Memory is a partial map from references to `Typeable` values.
 type Memory = forall a . (Typeable a) => Ref a -> Maybe a
 
 -- | Type of heaps. These comprise a partial map from
