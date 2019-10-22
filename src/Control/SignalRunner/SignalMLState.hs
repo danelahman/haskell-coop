@@ -29,8 +29,8 @@ or assignment), then the corresponding co-operation is going to send a
 -}
 module Control.SignalRunner.SignalMLState
   (
-  Nat, Ref,
-  Addr, addrOf, -- needed in `MonotonicMLState`
+  Ref,
+  addrOf, -- needed in `MonotonicMLState`
   MLState(..), S(..), Heap, 
   alloc, (!), deref, (=:=), assign,
   mlRunner, mlInitialiser, mlFinaliserVal, mlFinaliserExc, mlFinaliserSig, mlTopLevel,
