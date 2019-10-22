@@ -4,14 +4,14 @@
 
 {-|
 Module      : Control.Runner.FileIOAndMLState
-Description : Combination of file IO and ML-style state, using the horizontal composition of runners
+Description : Combination of file IO and ML-style state, using the pairing of runners
 Copyright   : (c) Danel Ahman, 2019
 License     : MIT
 Maintainer  : danel.ahman@eesti.ee
 Stability   : experimental
 
-This module uses the horizontal combination of runners (`pairRunners`) to combine 
-the file IO runners from `FileIO` and the ML-style state runner from `MLState`.
+This module uses the pairing of runners (`pairRunners`) to combine the file
+IO runners from `FileIO` and the ML-style state runner from `MLState`.
 -}
 module Control.Runner.FileIOAndMLState
   (
