@@ -124,7 +124,7 @@ intMLRunner = mkRunner intMLCoOps
 
 -- | Initialiser for the runner `intMlRunner` that
 -- initialises the heap with the empty partial map,
--- and sets the next address to be allocated to @Z@.
+-- and sets the next address to be allocated to zero.
 intMLInitialiser :: User sig Heap
 intMLInitialiser = return (H { memory = \ _ -> Nothing , nextAddr = Z })
 

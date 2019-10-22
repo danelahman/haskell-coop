@@ -6,14 +6,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
---
--- ML-style state implemented using runners, supporting allocation
--- lookup, and assignment of memory references. Using polymorphism
--- provided by Haskell, we store values with arbitrary types, though
--- we limit ourselves to storing Typable values, so as to be able
--- to use typecasting as a means for deciding type equality.
---
-
 {-|
 Module      : Control.Runner.MLState
 Description : Runner for general ML-style state (supporting allocation, dereferencing, and assignment)
@@ -147,7 +139,7 @@ mlRunner = mkRunner mlCoOps
 
 -- | Initialiser for the runner `mlRunner` that
 -- initialises the heap with the empty partial map,
--- and sets the next address to be allocated to @Z@.
+-- and sets the next address to be allocated to zero.
 mlInitialiser :: User sig Heap
 mlInitialiser = return (H { memory = \ _ -> Nothing , nextAddr = Z })
 
