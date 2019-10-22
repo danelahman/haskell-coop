@@ -25,17 +25,17 @@ import Control.Runner.MLState
 import System.IO
 
 -- | Footprint is a memory shape indexed vector of ML-style
--- memory references, with the typing ensuring that types of
--- the memory references match locations in the memory shape.
+-- references, with the typing ensuring that types of
+-- the references match locations in the memory shape.
 data Footprint :: forall memsize . MemShape memsize -> * where
   FE :: Footprint ShE
   FC :: (Typeable a) => Ref a -> Footprint sh -> Footprint (ShC a sh)
 
 -- | Initialiser for running the given footprint of ML-style
--- memory references locally using the runner `fpRunner.
+-- references locally using the runner `fpRunner.
 --
 -- The initialiser recurses through the given footprint, and
--- looks up the values stored in each of the memory references,
+-- looks up the values stored in each of the references,
 -- and assembles them into a memory which it then returns.
 fpInitialiser :: Footprint memshape -> User '[MLState] (Memory memshape)
 fpInitialiser FE = return ME
@@ -45,7 +45,7 @@ fpInitialiser (FC r fp) =
      return (MC x mem)
 
 -- | Finaliser for running the given footprint of ML-style
--- memory references locally using the runner `fpRunner.
+-- references locally using the runner `fpRunner.
 --
 -- The finaliser recurses through the given footprint,
 -- and performs assignments to all the references in it, 

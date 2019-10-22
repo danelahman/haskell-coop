@@ -39,8 +39,8 @@ data MemShape :: Nat -> * where
   ShC :: * -> MemShape n -> MemShape (S n)
 
 -- | Footprint is a memory shape indexed vector of ML-style
--- memory references, with the typing ensuring that types of
--- the memory references match locations in the memory shape.
+-- references, with the typing ensuring that types of
+-- the references match locations in the memory shape.
 data Footprint :: forall memsize . MemShape memsize -> * where
   FE :: Footprint ShE
   FC :: (Typeable a) => Ref a -> Footprint sh -> Footprint (ShC a sh)
@@ -91,7 +91,7 @@ fpCoOps (Put addr x) =
 -- in an external context that provides the `MLState` effect.
 --
 -- As its runtime state, this runner stores a footprint of
--- ML-style memory references. The co-operations for `Get` and
+-- ML-style references. The co-operations for `Get` and
 -- `Put` delegate the operations to some enveloping runner
 -- that implements the `MLState` effect of ML-style state.
 fpRunner :: Runner '[State memshape] '[MLState] (Footprint memshape)

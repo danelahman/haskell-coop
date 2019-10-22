@@ -24,7 +24,7 @@ module Control.Runner.IntMLState
 
 import Control.Runner
 
--- | Type of natural numbers that we use for the address of memory references.
+-- | Type of natural numbers that we use for the address of references.
 data Nat where
   Z :: Nat
   S :: Nat -> Nat
@@ -34,10 +34,10 @@ instance Eq Nat where
   (S n) == (S m) = n == m
   _ == _ = False
 
--- | Addresses of memory references.
+-- | Addresses of references.
 type Addr = Nat
 
--- | Type of memory references.
+-- | Type of references.
 data Ref where
   R :: Addr -> Ref
 
@@ -49,25 +49,25 @@ addrOf (R r) = r
 type Memory = Ref -> Maybe Int
 
 -- | Type of heaps. These comprise a partial map from
--- memory references to integers, and the address of
--- the next fresh memory reference to be allocated.
+-- references to integers, and the address of
+-- the next fresh reference to be allocated.
 data Heap = H { memory :: Memory, nextAddr :: Addr }
 
--- | Reading the value of a memory reference in the heap.
+-- | Reading the value of a reference in the heap.
 heapSel :: Heap -> Ref -> Int
 heapSel h r =
   case memory h r of
     Nothing -> error "reference not in the heap" -- raising a runtime error
     Just x -> x
 
--- | Updating the value of a memory reference in the memory.
+-- | Updating the value of a reference in the memory.
 memUpd :: Memory -> Ref -> Int -> Memory
 memUpd m r x r' =
   if (addrOf r == addrOf r')
   then Just x
   else m r'
 
--- | Updatring the value of a memory reference
+-- | Updatring the value of a reference
 -- in the heap, with the given initial value.
 heapUpd :: Heap -> Ref -> Int -> Heap
 heapUpd h r x = h { memory = memUpd (memory h) r x }
@@ -81,33 +81,33 @@ heapAlloc h init =
 
 -- | An effect for integer-valued ML-style state.
 data IntMLState a where
-  -- | Algebraic operation for allocating a fresh memory reference.
+  -- | Algebraic operation for allocating a fresh reference.
   Alloc  :: Int -> IntMLState Ref
-  -- | Algebraic operation for dereferencing a memory reference.
+  -- | Algebraic operation for dereferencing a reference.
   Deref  :: Ref -> IntMLState Int
-  -- | Algebraic operation for assiging a value to a memory reference.
+  -- | Algebraic operation for assiging a value to a reference.
   Assign :: Ref -> Int -> IntMLState ()
 
--- | Generic effect for allocating a fresh memory reference.
+-- | Generic effect for allocating a fresh reference.
 alloc :: Member IntMLState sig => Int -> User sig Ref
 alloc init = focus (performU (Alloc init))
 
--- | Generic effect for dereferencing a memory reference.
+-- | Generic effect for dereferencing a reference.
 (!) :: Member IntMLState sig => Ref -> User sig Int
 (!) r = focus (performU (Deref r))
 
--- | Generic effect for assigning a value to a memory reference.
+-- | Generic effect for assigning a value to a reference.
 (=:=) :: Member IntMLState sig => Ref -> Int -> User sig ()
 (=:=) r x = focus (performU (Assign r x))
 
--- | The co-operations of the runner `intMlRunner`.
+-- | The co-operations of the runner `intMLRunner`.
 intMLCoOps :: IntMLState a -> Kernel sig Heap a
 intMLCoOps (Alloc init) =
   do h <- getEnv;
      (r,h') <- return (heapAlloc h init);
      setEnv h';
      return r
-intMLCoOps (Deref r)    =
+intMLCoOps (Deref r) =
   do h <- getEnv;
      return (heapSel h r)
 intMLCoOps (Assign r x) =
@@ -122,13 +122,13 @@ intMLCoOps (Assign r x) =
 intMLRunner :: Runner '[IntMLState] sig Heap
 intMLRunner = mkRunner intMLCoOps
 
--- | Initialiser for the runner `intMlRunner` that
+-- | Initialiser for the runner `intMLRunner` that
 -- initialises the heap with the empty partial map,
 -- and sets the next address to be allocated to zero.
 intMLInitialiser :: User sig Heap
 intMLInitialiser = return (H { memory = \ _ -> Nothing , nextAddr = Z })
 
--- | Finaliser for the runner `intMlRunner` that
+-- | Finaliser for the runner `intMLRunner` that
 -- discards the final value of the heap, and simply
 -- passes on the return value.
 intMLFinaliser :: a -> Heap -> User sig a

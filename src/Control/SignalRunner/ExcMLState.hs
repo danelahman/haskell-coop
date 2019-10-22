@@ -19,7 +19,7 @@ that supports allocation of references, dereferencing references,
 and assignment to references. 
 
 We allow a large class of Haskell values to be stored in our memory 
-references, as long as they are instances of the `Typable` type class. 
+references, as long as they are instances of the `Typeable` type class. 
 We use this restriction to be able to use the type-safe `cast` operation
 as a means to compare the types of two references for equality. 
 
@@ -53,7 +53,7 @@ instance Show E where
   show (RefNotInHeapInDerefException r) = "RefNotInHeapInDerefException -- " ++ show r
   show (RefNotInHeapInAssignException r) = "RefNotInHeapInAssignException -- " ++ show r
 
--- | Type of natural numbers that we use for the address of memory references.
+-- | Type of natural numbers that we use for the address of references.
 data Nat where
   Z :: Nat
   S :: Nat -> Nat
@@ -67,10 +67,10 @@ instance Show Nat where
   show Z = "Z"
   show (S n) = "S " ++ show n
 
--- | Addresses of memory references.
+-- | Addresses of references.
 type Addr = Nat
 
--- | Type of memory references, restricted to only store
+-- | Type of references, restricted to only store
 -- values of types satisfying the `Typeable` type class.
 data Ref a where
   R :: (Typeable a) => Addr -> Ref a
@@ -86,18 +86,18 @@ addrOf (R r) = r
 type Memory = forall a . (Typeable a) => Ref a -> Maybe a
 
 -- | Type of heaps. These comprise a partial map from
--- memory references to values, and the address of
--- the next fresh memory reference to be allocated.
+-- references to values, and the address of
+-- the next fresh reference to be allocated.
 data Heap = H { memory :: Memory, nextAddr :: Addr }
 
--- | Reading the value of a memory reference in the heap.
+-- | Reading the value of a reference in the heap.
 --
 -- It returns an optional value, depending on whether
 -- the reference was present in the heap or not.
 heapSel :: (Typeable a) => Heap -> Ref a -> Maybe a
 heapSel h r = memory h r
 
--- | Updating the value of a memory reference in the memory.
+-- | Updating the value of a reference in the memory.
 memUpd :: (Typeable a) => Memory -> Ref a -> a -> Memory
 memUpd mem r x r' =
   case cast x of
@@ -107,7 +107,7 @@ memUpd mem r x r' =
       then Just y
       else mem r')
 
--- | Updatring the value of a memory reference in the heap.
+-- | Updatring the value of a reference in the heap.
 heapUpd :: (Typeable a) => Heap -> Ref a -> a -> Heap
 heapUpd h r x = h { memory = memUpd (memory h) r x }
 
@@ -121,26 +121,26 @@ heapAlloc h init =
            
 -- | An effect for general ML-style state.
 data MLState a where
-  -- | Algebraic operation for allocating a fresh memory reference.
+  -- | Algebraic operation for allocating a fresh reference.
   Alloc  :: (Typeable a) => a -> MLState (Ref a)
-  -- | Algebraic operation for dereferencing a memory reference,
-  -- raises an exception in `E` when the reference is not present in the heap.
+  -- | Algebraic operation for dereferencing a reference, raises
+  -- an exception in `E` when the reference is not present in the heap.
   Deref  :: (Typeable a) => Ref a -> MLState (Either a E)
-  -- | Algebraic operation for assiging a value to a memory reference,
-  -- raises an exception in `E` when the reference is not present in the heap.
+  -- | Algebraic operation for assiging a value to a reference, raises
+  -- an exception in `E` when the reference is not present in the heap.
   Assign :: (Typeable a) => Ref a -> a -> MLState (Either () E)
 
--- | Generic effect for allocating a fresh memory reference.
+-- | Generic effect for allocating a fresh reference.
 alloc :: (Typeable a,Member MLState sig) => a -> User sig e (Ref a)
 alloc init = tryWithU (focus (performU (Alloc init))) return impossible
 
--- | Generic effect for dereferencing a memory reference.
+-- | Generic effect for dereferencing a reference.
 (!) :: (Typeable a,Member MLState sig) => Ref a -> User sig E a
 (!) r = tryWithU (focus (performU (Deref r)))
           (either return (\ e -> raiseU e))
           impossible
 
--- | Generic effect for assigning a value to a memory reference.
+-- | Generic effect for assigning a value to a reference.
 (=:=) :: (Typeable a,Member MLState sig) => Ref a -> a -> User sig E ()
 (=:=) r x = tryWithU (focus (performU (Assign r x)))
               (either return (\ e -> raiseU e))

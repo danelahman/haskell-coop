@@ -18,10 +18,10 @@ This module implements a runner that provides general ML-style state
 that supports allocation of references, dereferencing references, 
 and assignment to references. 
 
-We allow a large class of Haskell values to be stored in our memory 
-references, as long as they are instances of the `Typable` type class. 
-We use this restriction to be able to use the type-safe `cast` operation
-as a means to compare the types of two references for equality. 
+We allow a large class of Haskell values to be stored in our references, 
+as long as they are instances of the `Typeable` type class. We use this 
+restriction to be able to use the type-safe `cast` operation as a means 
+to compare the types of two references for equality. 
 -}
 module Control.Runner.MLState
   (
@@ -35,7 +35,7 @@ import Control.Runner
 
 import Data.Typeable
 
--- | Type of natural numbers that we use for the address of memory references.
+-- | Type of natural numbers that we use for the address of references.
 data Nat where
   Z :: Nat
   S :: Nat -> Nat
@@ -45,10 +45,10 @@ instance Eq Nat where
   (S n) == (S m) = n == m
   _ == _ = False
 
--- | Addresses of memory references.
+-- | Addresses of references.
 type Addr = Nat
 
--- | Type of memory references, restricted to only store
+-- | Type of references, restricted to only store
 -- values of types satisfying the `Typeable` type class.
 data Ref a where
   R :: (Typeable a) => Addr -> Ref a
@@ -60,19 +60,19 @@ addrOf (R r) = r
 -- | Memory is a partial map from references to `Typeable` values.
 type Memory = forall a . (Typeable a) => Ref a -> Maybe a
 
--- | Type of heaps. These comprise a partial map from
--- memory references to values, and the address of
--- the next fresh memory reference to be allocated.
+-- | Type of heaps. These comprise a partial map 
+-- from references to values, and the address of
+-- the next fresh reference to be allocated.
 data Heap = H { memory :: Memory, nextAddr :: Addr }
 
--- | Reading the value of a memory reference in the heap.
+-- | Reading the value of a reference in the heap.
 heapSel :: (Typeable a) => Heap -> Ref a -> a
 heapSel h r =
   case memory h r of
     Nothing -> error "reference not in the heap" -- raising a runtime error
     Just x -> x
 
--- | Updating the value of a memory reference in the memory.
+-- | Updating the value of a reference in the memory.
 memUpd :: (Typeable a) => Memory -> Ref a -> a -> Memory
 memUpd mem r x r' =
   case cast x of -- using `cast` to (indirectly) compare the types of two references
@@ -82,7 +82,7 @@ memUpd mem r x r' =
       then Just y
       else mem r')
 
--- | Updatring the value of a memory reference in the heap.
+-- | Updatring the value of a reference in the heap.
 heapUpd :: (Typeable a) => Heap -> Ref a -> a -> Heap
 heapUpd h r x = h { memory = memUpd (memory h) r x }
 
@@ -96,22 +96,22 @@ heapAlloc h init =
 
 -- | An effect for general ML-style state.
 data MLState a where
-  -- | Algebraic operation for allocating a fresh memory reference.
+  -- | Algebraic operation for allocating a fresh reference.
   Alloc  :: (Typeable a) => a -> MLState (Ref a)
-  -- | Algebraic operation for dereferencing a memory reference.
+  -- | Algebraic operation for dereferencing a reference.
   Deref  :: (Typeable a) => Ref a -> MLState a
-  -- | Algebraic operation for assiging a value to a memory reference.
+  -- | Algebraic operation for assiging a value to a reference.
   Assign :: (Typeable a) => Ref a -> a -> MLState ()
 
--- | Generic effect for allocating a fresh memory reference.
+-- | Generic effect for allocating a fresh reference.
 alloc :: (Typeable a,Member MLState sig) => a -> User sig (Ref a)
 alloc init = focus (performU (Alloc init))
 
--- | Generic effect for dereferencing a memory reference.
+-- | Generic effect for dereferencing a reference.
 (!) :: (Typeable a,Member MLState sig) => Ref a -> User sig a
 (!) r = focus (performU (Deref r))
 
--- | Generic effect for assigning a value to a memory reference.
+-- | Generic effect for assigning a value to a reference.
 (=:=) :: (Typeable a,Member MLState sig) => Ref a -> a -> User sig ()
 (=:=) r x = focus (performU (Assign r x))
 
