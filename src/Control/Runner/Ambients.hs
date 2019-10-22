@@ -7,7 +7,7 @@
 {-# LANGUAGE TypeOperators #-}
 
 {-|
-Module      : Control.Ambients
+Module      : Control.Runner.Ambients
 Description : Runner for Koka-style ambient values and ambient functions
 Copyright   : (c) Danel Ahman, 2019
 License     : MIT

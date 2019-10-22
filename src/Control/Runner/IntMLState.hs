@@ -4,7 +4,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
 {-|
-Module      : Control.IntMLState
+Module      : Control.Runner.IntMLState
 Description : Runner for integer-valued ML-style state (supporting allocation, dereferencing, and assignment)
 Copyright   : (c) Danel Ahman, 2019
 License     : MIT

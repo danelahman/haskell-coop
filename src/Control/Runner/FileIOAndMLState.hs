@@ -2,12 +2,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 
---
--- Combination of the runners for File IO and ML-style state.
---
-
 {-|
-Module      : Control.FileIOAndMLState
+Module      : Control.Runner.FileIOAndMLState
 Description : Combination of file IO and ML-style state, using the horizontal composition of runners
 Copyright   : (c) Danel Ahman, 2019
 License     : MIT

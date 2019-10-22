@@ -4,7 +4,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 {-|
-Module      : Control.FPState
+Module      : Control.Runner.FPState
 Description : Runner for footprint-indexed global state, using effect typing to ensure that only the footprint is accessed
 Copyright   : (c) Danel Ahman, 2019
 License     : MIT

@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
 {-|
-Module      : Control.IntState
+Module      : Control.Runner.IntState
 Description : Runner for integer-valued global state, using effect typing to ensure that only a given footprint is accessed
 Copyright   : (c) Danel Ahman, 2019
 License     : MIT

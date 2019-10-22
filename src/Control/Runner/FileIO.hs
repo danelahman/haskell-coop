@@ -4,7 +4,7 @@
 {-# LANGUAGE KindSignatures #-}
 
 {-|
-Module      : Control.FileIO
+Module      : Control.Runner.FileIO
 Description : Runners implementing file IO
 Copyright   : (c) Danel Ahman, 2019
 License     : MIT
@@ -29,10 +29,6 @@ import Control.Runner
 import System.IO hiding (withFile)
 
 import qualified Data.ByteString.Char8 as B
-
---
--- Signature of the file-fragment of the external world.
---
 
 -- | An effect for performing file IO.
 data FileIO a where
