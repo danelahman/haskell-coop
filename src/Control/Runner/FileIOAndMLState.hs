@@ -28,14 +28,9 @@ import Control.Runner.MLState hiding (mlTopLevel)
 
 import System.IO hiding (withFile)
 
---
--- With-file construct in the presence of ML-style state.
---
--- Currently limited to the use of one file at a time.
---
-
 -- | A variant of the with-file construct that runs user code that can
--- perform effects both from the `File` and `MLState` effects.
+-- perform effects both from the `File` and `MLState` effects. For
+-- simplicity, currently limited to the use of one file at a time.
 withFile :: FilePath -> User '[File,MLState] a -> User '[IO,MLState] a
 withFile fn c =
   run
