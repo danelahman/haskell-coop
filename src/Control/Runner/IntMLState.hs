@@ -3,26 +3,28 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
 
---
--- Simple integer-valued ML-style state implemented using runners,  
--- supporting allocation lookup, and assignment of memory references.
---
+{-|
+Module      : Control.IntMLState
+Description : Runner for integer-valued ML-style state (supporting allocation, dereferencing, and assignment)
+Copyright   : (c) Danel Ahman, 2019
+License     : MIT
+Maintainer  : danel.ahman@eesti.ee
+Stability   : experimental
 
+This module implements a runner that provides integer-valued 
+ML-style state, i.e., state that supports allocation of references, 
+dereferencing a value of a reference, and assignment to a reference.
+-}
 module Control.Runner.IntMLState
   (
-  Ref, IntMLState(..),
+  Ref, Heap, IntMLState(..),
   alloc, (!), (=:=),
-  intMlRunner, intMlInitialiser, intMlFinaliser, intMlTopLevel,
-  Typeable
+  intMLRunner, intMLInitialiser, intMLFinaliser, intMLTopLevel,
   ) where
 
 import Control.Runner
 
-import Data.Typeable
-
---
--- Datatypes of natural numbers (for memory addresses).
---
+-- | Type of natural numbers that we use for the address of memory references.
 data Nat where
   Z :: Nat
   S :: Nat -> Nat
@@ -32,102 +34,120 @@ instance Eq Nat where
   (S n) == (S m) = n == m
   _ == _ = False
 
---
--- Typed integer-valued references.
---
+-- | Addresses of memory references.
 type Addr = Nat
 
+-- | Type of memory references.
 data Ref where
   R :: Addr -> Ref
 
-mkRef :: Addr -> Ref
-mkRef addr = R addr
-
+-- | Exposing the address of a reference (private to this module).
 addrOf :: Ref -> Addr
 addrOf (R r) = r
 
---
--- Type of heaps, with associated select, update, and alloc functions.
---
+-- | Memory if a partial map from references to integers.
 type Memory = Ref -> Maybe Int
 
+-- | Type of heaps. These comprise a partial map from
+-- memory references to integers, and the address of
+-- the next fresh memory reference to be allocated.
 data Heap = H { memory :: Memory, nextAddr :: Addr }
 
+-- | Reading the value of a memory reference in the heap.
 heapSel :: Heap -> Ref -> Int
 heapSel h r =
   case memory h r of
-    Nothing -> error "reference not in the heap"
+    Nothing -> error "reference not in the heap" -- raising a runtime error
     Just x -> x
 
+-- | Updating the value of a memory reference in the memory.
 memUpd :: Memory -> Ref -> Int -> Memory
 memUpd m r x r' =
   if (addrOf r == addrOf r')
   then Just x
   else m r'
 
+-- | Updatring the value of a memory reference in the heap.
 heapUpd :: Heap -> Ref -> Int -> Heap
 heapUpd h r x = h { memory = memUpd (memory h) r x }
 
+-- | Allocating a fresh reference in the heap.
 heapAlloc :: Heap -> Int -> (Ref,Heap)
 heapAlloc h init =
-  let r = mkRef (nextAddr h) in 
+  let r = R (nextAddr h) in 
   (r , H { memory = memUpd (memory h) r init ,
            nextAddr = S (nextAddr h) })
 
---
--- Signature of ML-style integer-valued state operations.
---
-data IntMLState :: * -> * where
+-- | An effect for integer-valued ML-style state.
+data IntMLState a where
+  -- | Algebraic operation for allocating a fresh memory reference.
   Alloc  :: Int -> IntMLState Ref
+  -- | Algebraic operation for dereferencing a memory reference.
   Deref  :: Ref -> IntMLState Int
+  -- | Algebraic operation for assiging a value to a memory reference.
   Assign :: Ref -> Int -> IntMLState ()
 
---
--- Generic effects.
---
+-- | Generic effect for allocating a fresh memory reference.
 alloc :: Member IntMLState sig => Int -> User sig Ref
 alloc init = focus (performU (Alloc init))
 
+-- | Generic effect for dereferencing a memory reference.
 (!) :: Member IntMLState sig => Ref -> User sig Int
 (!) r = focus (performU (Deref r))
 
+-- | Generic effect for assigning a value to a memory reference.
 (=:=) :: Member IntMLState sig => Ref -> Int -> User sig ()
 (=:=) r x = focus (performU (Assign r x))
 
 --
 -- ML-style integer-valued memory runner.
 --
-intMlCoOps :: IntMLState a -> Kernel sig Heap a
-intMlCoOps (Alloc init) =
+
+-- | The co-operations of the runner `intMlRunner`.
+intMLCoOps :: IntMLState a -> Kernel sig Heap a
+intMLCoOps (Alloc init) =
   do h <- getEnv;
      (r,h') <- return (heapAlloc h init);
      setEnv h';
      return r
-intMlCoOps (Deref r)    =
+intMLCoOps (Deref r)    =
   do h <- getEnv;
      return (heapSel h r)
-intMlCoOps (Assign r x) =
+intMLCoOps (Assign r x) =
   do h <- getEnv;
      setEnv (heapUpd h r x)
 
-intMlRunner :: Runner '[IntMLState] sig Heap
-intMlRunner = mkRunner intMlCoOps
+-- | Runner that implements the `IntMLState` effect.
+-- Its runtime state is a heap (see `Heap`), and its
+-- co-operations call the corresponding allocation,
+-- dereferencing, and assignment operations on the heap.
+intMLRunner :: Runner '[IntMLState] sig Heap
+intMLRunner = mkRunner intMLCoOps
 
 --
 -- Top-Level running of the ML-style memory.
 --
-intMlInitialiser :: User sig Heap
-intMlInitialiser = return (H { memory = \ _ -> Nothing , nextAddr = Z })
 
-intMlFinaliser :: a -> Heap -> User sig a
-intMlFinaliser x _ = return x
+-- | Initialiser for the runner `intMlRunner` that
+-- initialises the heap with the empty partial map,
+-- and sets the next address to be allocated to @Z@.
+intMLInitialiser :: User sig Heap
+intMLInitialiser = return (H { memory = \ _ -> Nothing , nextAddr = Z })
 
-intMlTopLevel :: User '[IntMLState] a -> a
-intMlTopLevel m =
+-- | Finaliser for the runner `intMlRunner` that
+-- discards the final value of the heap, and simply
+-- passes on the return value.
+intMLFinaliser :: a -> Heap -> User sig a
+intMLFinaliser x _ = return x
+
+-- | Top level for running user code that can use
+-- integer-valued ML-style state.
+intMLTopLevel :: User '[IntMLState] a -> a
+intMLTopLevel m =
   pureTopLevel (
     run
-      intMlRunner
-      intMlInitialiser
+      intMLRunner
+      intMLInitialiser
       m
-      intMlFinaliser
+      intMLFinaliser
   )
