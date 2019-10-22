@@ -167,16 +167,20 @@ focus m =
 --
 -- > performU (ReadFile fileHandle) :: User '[FileIO] e (Either String E)
 --
--- Observe that @performU (ReadFile fileHandle)@ returns an exception of 
--- type @E@ as an `Either`-typed value, rather than a raising a primitive exception.
--- This is so because, as noted earlier, the library does not attach exceptions
--- to effects in the signature but requires the programmer to model them as
--- return values of individual operations. However, we have found that in
--- example programs this is not too troublesome, because in the end one usually
--- exposes more human-readably wrapped generic effects to the programmer.
--- Part of that wrapping is then pattern matching on the exception returned as
--- a `Either`-typed value, and raising it as an exception proper in the `User`
--- monad (with `raiseU`), e.g., see the discussion in the description of `run`.
+-- As discussed in the description of `User`, the library currently
+-- does not support attaching exceptions to effects in a signature.
+-- Instead the programmer is expected to model any exceptions returned
+-- by an operation as an exceptional return values, as above. In example
+-- programs we have found that this style is not too troublesome,
+-- because in the end one usually exposes more human-readably wrapped
+-- generic effects to the programmer. Part of that wrapping is then 
+-- pattern matching on the exception returned as a `Either`-typed value,
+-- and raising it as an exception proper in the `User` monad (using
+-- `raiseU`), e.g., see the discussion in the description of `run`.
+--
+-- Also observe that the exception index @e@ is left polymorphic above---it
+-- gets instantiated by the contex in which one places this operation call.
+--
 performU :: eff a -> User '[eff] e a
 performU op = U (do x <- send op; return (Left x))
 
@@ -194,6 +198,9 @@ genPerformK op = K (\ c -> (do x <- send op; return (Left (Left x,c))))
 
 -- | Raising an exception of type @e@ in user code.
 --
+-- Raised user exceptions can be caught with `tryWithU`, and with
+-- the finalisers of `run` and `user`.
+--
 -- For instance, when working with file IO, @e@ could be the type
 --
 -- > data E where
@@ -209,10 +216,15 @@ raiseU :: e -> User sig e a
 raiseU e = U (return (Right e))
 
 -- | Raising an exception of type @e@ in user code.
+--
+-- Raised kernel exceptions can be caught with `tryWithK`,
+-- and with the finalisers of `kernel`.
 raiseK :: e -> Kernel sig e s c a
 raiseK e = K (\ c -> return (Left (Right e,c)))
 
 -- | Sending a (kill) signal of type @s@ in kernel code.
+--
+-- Signals can be caught with the finalisers of `run` and `kernel`.
 --
 -- For instance, when working with file IO, @s@ could be the type
 --
@@ -268,6 +280,18 @@ tryWithK (K k) f g =
          xs)
 
 -- | Context switch to execute a kernel computation in user mode.
+--
+-- The 1st argument of type @Kernel sig e s c a@ is the kernel computation to be executed.
+--
+-- The 2nd argument of type @c@ is the initial value for runtime state.
+--
+-- The 3rd argument of type @a -> c -> User sig e' b@ is a finaliser for return values.
+--
+-- The 4th argument of type @e -> c -> User sig e' b@ is a finaliser for exceptions.
+--
+-- The 5th argument of type @s -> User sig e' b@ is a finaliser for signals.
+--
+-- The 3rd, 4th, and 5th argument perform the context switch back to user mode.
 kernel :: Kernel sig e s c a
       -> c
       -> (a -> c -> User sig e' b)
@@ -286,6 +310,14 @@ kernel (K k) c f g h =
           xs)
 
 -- | Context switch to execute a user computation in kernel mode.
+--
+-- The 1st argument of type @User sig e a@ is the user computation to be executed.
+--
+-- The 2nd argument of type @a -> Kernel sig e' s c b@ is a finaliser for return values.
+--
+-- The 3rd argument of type @e -> Kernel sig e' s c b@ is a finaliser for exceptions.
+--
+-- The 2nd and 3rd argument perform the context switch back to kernel mode.
 user :: User sig e a
       -> (a -> Kernel sig e' s c b)
       -> (e -> Kernel sig e' s c b)

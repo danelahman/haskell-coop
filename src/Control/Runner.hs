@@ -129,11 +129,23 @@ setEnv :: c -> Kernel sig c ()
 setEnv c' = KC (\ c -> return ((),c'))
 
 -- | Context switch to execute a kernel computation in user mode.
+--
+-- The 1st argument of type @Kernel sig c a@ is the kernel computation to be executed.
+--
+-- The 2nd argument of type @c@ is the initial value for runtime state.
+--
+-- The 3rd argument of type @a -> c -> User sig b@ is a finaliser for return values,
+-- which also performs the context switch back to user mode.
 kernel :: Kernel sig c a -> c -> (a -> c -> User sig b) -> User sig b
 kernel (KC k) c f =
   UC (do (x,c') <- k c; let (UC m) = f x c' in m)
 
 -- | Context switch to execute a user computation in kernel mode.
+--
+-- The 1st argument of type @User sig a@ is the user computation to be executed.
+--
+-- The 2nd argument of type @a -> Kernel sig c b@ is a finaliser for return values,
+-- which also performs the context switch back to kernel mode.
 user :: User sig a -> (a -> Kernel sig c b) -> Kernel sig c b
 user (UC m) f =
   KC (\ c -> do x <- m; let (KC k) = f x in k c)
