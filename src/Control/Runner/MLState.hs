@@ -3,6 +3,8 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -25,7 +27,7 @@ to compare the types of two references for equality.
 -}
 module Control.Runner.MLState
   (
-  Ref, MLState(..), Heap,
+  Ref, refEq, MLState(..), Heap,
   alloc, (!), (=:=),
   mlRunner, mlInitialiser, mlFinaliser, mlTopLevel,
   Typeable
@@ -57,6 +59,16 @@ data Ref a where
 addrOf :: Ref a -> Addr
 addrOf (R r) = r
 
+-- | Decidable equality on references (of possibly different types).
+--
+-- If the references are deemed to be equal, the equality test also
+-- returns a proof that their types are (propositionally) equal.
+refEq :: (Typeable a,Typeable b) => Ref a -> Ref b -> Maybe (a :~: b)
+refEq (r :: Ref a) (r' :: Ref b) =
+  if (addrOf r == addrOf r')
+  then eqT @a @b
+  else Nothing
+
 -- | Memory is a partial map from references to `Typeable` values.
 type Memory = forall a . (Typeable a) => Ref a -> Maybe a
 
@@ -74,13 +86,10 @@ heapSel h r =
 
 -- | Updating the value of a reference in the memory.
 memUpd :: (Typeable a) => Memory -> Ref a -> a -> Memory
-memUpd mem r x r' =
-  case cast x of -- using `cast` to (indirectly) compare the types of two references
+memUpd mem (r :: Ref a) x (r' :: Ref b) =
+  case refEq r r' of
     Nothing -> mem r'
-    Just y -> (
-      if (addrOf r == addrOf r')
-      then Just y
-      else mem r')
+    Just Refl -> Just x
 
 -- | Updatring the value of a reference in the heap.
 heapUpd :: (Typeable a) => Heap -> Ref a -> a -> Heap
