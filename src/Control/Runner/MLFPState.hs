@@ -59,6 +59,11 @@ fpFinaliser (FC r fp) x (MC y mem) =
 
 -- | Scoped running of user code on a given footprint of
 -- general, external ML-style memory, using `fpRunner`.
+--
+-- The idea is that any reads and writes that the given
+-- performs on the given footprint happen locally. It is
+-- only in a finaliser for `fpRunner` that the final values
+-- of the footprint get committed back to the ML-style state.
 withFootprint :: Footprint memshape -> User '[State memshape] a -> User '[MLState] a
 withFootprint fp m =
   run

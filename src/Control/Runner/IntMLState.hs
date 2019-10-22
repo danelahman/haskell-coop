@@ -67,7 +67,8 @@ memUpd m r x r' =
   then Just x
   else m r'
 
--- | Updatring the value of a memory reference in the heap.
+-- | Updatring the value of a memory reference
+-- in the heap, with the given initial value.
 heapUpd :: Heap -> Ref -> Int -> Heap
 heapUpd h r x = h { memory = memUpd (memory h) r x }
 
@@ -99,10 +100,6 @@ alloc init = focus (performU (Alloc init))
 (=:=) :: Member IntMLState sig => Ref -> Int -> User sig ()
 (=:=) r x = focus (performU (Assign r x))
 
---
--- ML-style integer-valued memory runner.
---
-
 -- | The co-operations of the runner `intMlRunner`.
 intMLCoOps :: IntMLState a -> Kernel sig Heap a
 intMLCoOps (Alloc init) =
@@ -118,6 +115,7 @@ intMLCoOps (Assign r x) =
      setEnv (heapUpd h r x)
 
 -- | Runner that implements the `IntMLState` effect.
+--
 -- Its runtime state is a heap (see `Heap`), and its
 -- co-operations call the corresponding allocation,
 -- dereferencing, and assignment operations on the heap.
