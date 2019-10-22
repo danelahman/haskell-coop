@@ -226,7 +226,7 @@ extendRunner (CoOps coops r) =
 -- runner's co-operations on the second part of the composite state.
 --
 -- In other words, the resulting runner runs the given runners
--- side-by-side, in a kind of horizontal composition.
+-- side-by-side, in a kind of a horizontal composition of runners.
 --
 -- The intended use of `pairRunners` is to construct n-ary combinations
 -- of individual runners, e.g., by combining some number of file IO
