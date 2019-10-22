@@ -575,7 +575,7 @@ pureTopLevel _ = error "this should not have happened"
 topLevel :: Monad m => User '[m] Zero a -> m a
 topLevel (U m) = runM (fmap (either id impossible) m)
 
--- | A short-hand for top-level running of user computations in the IO monad, defined using `topLevel`.
+-- | Syntactic sugar for top-level running of user computations in the IO monad, defined using `topLevel`.
 ioTopLevel :: User '[IO] Zero a -> IO a
 ioTopLevel = topLevel
         

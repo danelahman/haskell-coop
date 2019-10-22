@@ -330,6 +330,6 @@ pureTopLevel _ = error "this should not have happened"
 topLevel :: Monad m => User '[m] a -> m a
 topLevel (UC c) = runM c
 
--- | A short-hand for top-level running of user computations in the IO monad, defined using `topLevel`.
+-- | Syntactic sugar for top-level running of user computations in the IO monad, defined using `topLevel`.
 ioTopLevel :: User '[IO] a -> IO a
 ioTopLevel = topLevel

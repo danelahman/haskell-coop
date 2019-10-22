@@ -54,6 +54,7 @@ module Control.Runner.Ambients
   AmbFun, AmbVal, Amb(..), AmbEff, 
   getVal, applyFun,
   rebindVal, rebindFun,
+  ambRunner, AmbHeap,
   withAmbVal, withAmbFun,
   ambTopLevel
   ) where
@@ -99,10 +100,11 @@ type AmbMemory =
     (Typeable a,Typeable b) =>
       AmbFun a b -> Depth -> Maybe (a -> AmbEff b)
 
--- | Heap comprises the memory, the address of the next ambient value
--- or ambient function to be allocated, and the current binding depth.
+-- | Heap in which we store the definitions of ambient values and ambient functions.
 data AmbHeap =
-  H { memory :: AmbMemory, nextAddr :: Addr, depth :: Depth }
+  H { memory   :: AmbMemory, -- memory that stores definitions of ambient values and ambient functions
+      nextAddr :: Addr,      -- address of the next ambient value or ambient function to be allocated
+      depth    :: Depth }    -- the current binding depth of the heap
 
 -- | Selecting an ambient function definition from the heap. Also returns
 -- the depth at which the ambient function was bound to its definition.
@@ -160,9 +162,9 @@ ambHeapAlloc h f =
 
 -- | The effect for programming with ambient values and ambient functions.
 data Amb :: * -> * where
-  -- | Algebraic operation for (an initial) binding of a value to an ambient value.
+  -- | Algebraic operation for (the initial) binding of a value to an ambient value.
   BindVal   :: (Typeable a) => a -> Amb (AmbVal a)
-  -- | Algebraic operation for (an initial) binding of a function to an ambient function.
+  -- | Algebraic operation for (the initial) binding of a function to an ambient function.
   BindFun   :: (Typeable a,Typeable b) => (a -> AmbEff b) -> Amb (AmbFun a b)
   -- | Algebraic operation for getting the value of an ambient value.
   GetVal    :: (Typeable a) => AmbVal a -> Amb a
@@ -173,49 +175,41 @@ data Amb :: * -> * where
   -- | Algebraic operation for rebinding an ambient function to a new function.
   RebindFun :: (Typeable a,Typeable b) => AmbFun a b -> (a -> AmbEff b) -> Amb ()
 
---
--- Sugar for user computations with the ambient effect. 
---
+-- | Syntactic sugar for the type of user computations that can perform the `Amb` effect. 
 type AmbEff a = User '[Amb] a
 
---
--- Public generic effects.
---
+-- | Generic effect for getting the value of an ambient value.
 getVal :: (Typeable a) => AmbVal a -> AmbEff a
 getVal (AV x) = focus (performU (ApplyFun x ()))
 
+-- | Generic effect for applying an ambient function to a value.
 applyFun :: (Typeable a,Typeable b) => AmbFun a b -> a -> AmbEff b
 applyFun f x = focus (performU (ApplyFun f x))
 
+-- | Generic effect for rebinding an ambient value to a new value.
 rebindVal :: (Typeable a) => AmbVal a -> a -> AmbEff ()
 rebindVal x y = focus (performU (RebindVal x y))
 
-rebindFun  :: (Typeable a,Typeable b)
+-- | Generic effect for rebinding an ambient function to a new function.
+rebindFun :: (Typeable a,Typeable b)
           => AmbFun a b
           -> (a -> AmbEff b)
           -> AmbEff ()
 rebindFun f g = focus (performU (RebindFun f g))
 
---
--- Private generic effect.
---
+-- | Generic effect for (the initial) binding of an ambient value.
 bindVal :: Typeable a
         => a
         -> AmbEff (AmbVal a)
 bindVal x = focus (performU (BindVal x))
 
+-- | Generic effect for (the initial) binding of an ambient function.
 bindFun :: (Typeable a,Typeable b)
         => (a -> AmbEff b)
         -> AmbEff (AmbFun a b)
 bindFun f = focus (performU (BindFun f))
 
---
--- Runner for ambient functions.
---
--- Ambient function application finds the ambient
--- function in the heap, and runs the application
--- at the corresponding depth of the callstack.
---
+-- | Co-operations of the runner implementing ambient values and ambient functions.
 ambCoOps :: Amb a -> Kernel sig AmbHeap a
 ambCoOps (BindVal x) =
   do h <- getEnv;
@@ -243,7 +237,7 @@ ambCoOps (ApplyFun f x) =
      user
        (run
           ambRunner
-          (return (h {depth = d}))
+          (return (h {depth = d})) -- observe that we rewind the heap to the poin where @f@ was last bound
           (f x)
           ambFinaliser)
        return
@@ -254,12 +248,11 @@ ambCoOps (RebindFun f g) =
   do h <- getEnv;
      setEnv (ambHeapUpd h f g)
 
+-- | Runner implementing ambient values and ambient functions.
 ambRunner :: Runner '[Amb] sig AmbHeap
 ambRunner = mkRunner ambCoOps
 
---
--- Scoped (initial) binding of ambient values.
---
+-- | Scoped initial binding of an ambient value.
 withAmbVal :: (Typeable a)
            => a
            -> (AmbVal a -> AmbEff b) -> AmbEff b
@@ -267,9 +260,7 @@ withAmbVal x k =
   do x <- bindVal x;
      k x
 
---
--- Scoped (initial) binding of ambient functions.
---
+-- | Scoped initial binding of an ambient function.
 withAmbFun :: (Typeable a,Typeable b)
            => (a -> AmbEff b)
            -> (AmbFun a b -> AmbEff c) -> AmbEff c
@@ -277,18 +268,21 @@ withAmbFun f k =
   do f <- bindFun f;
      k f
 
---
--- Top-level for running ambient functions.
---
+-- | Initialiser for running user code with `ambRunner`.
 ambInitialiser :: User sig AmbHeap
 ambInitialiser =
   return (H { memory = \ _ _ -> Nothing ,
               nextAddr = Z ,
               depth = Z })
 
+-- | Finaliser for running user code with `ambRunner`.
 ambFinaliser :: a -> AmbHeap -> User sig a
 ambFinaliser x _ = return x
 
+-- | Top level for running user code with the `AmbEff` effect.
+--
+-- Internally this top level functionality runs the user code
+-- using the runner `ambRunner`.
 ambTopLevel :: AmbEff a -> a
 ambTopLevel m =
   pureTopLevel (
