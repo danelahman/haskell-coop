@@ -83,12 +83,9 @@ memSel m r = memory m r
 memUpd :: (Typeable a) => MonMemory -> Ref a -> Preorder a -> MonMemory
 memUpd m r p =
   M { memory =
-        \ r' -> case cast p of
-                Nothing -> memory m r'
-                Just q -> (
-                  if (addrOf r == addrOf r')
-                  then Just q
-                  else memory m r') }
+        \ r' -> case refEq r r' of
+                  Nothing -> memory m r'
+                  Just Refl -> Just p }
 
 -- | An effect for monotonic ML-style state.
 data MonMLState :: * -> * where

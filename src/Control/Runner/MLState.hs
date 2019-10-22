@@ -22,8 +22,9 @@ and assignment to references.
 
 We allow a large class of Haskell values to be stored in our references, 
 as long as they are instances of the `Typeable` type class. We use this 
-restriction to be able to use the type-safe `cast` operation as a means 
-to compare the types of two references for equality. 
+restriction to be able to compare the types of references for equality, 
+so as to be able to define decidable equality for references (`refEq`), 
+which we in turn use when updating the values stored in the heap.
 -}
 module Control.Runner.MLState
   (

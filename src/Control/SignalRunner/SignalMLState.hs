@@ -3,6 +3,8 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -18,10 +20,11 @@ This module implements a runner that provides general ML-style state
 that supports allocation of references, dereferencing references, 
 and assignment to references. 
 
-We allow a large class of Haskell values to be stored in our memory 
-references, as long as they are instances of the `Typeable` type class. 
-We use this restriction to be able to use the type-safe `cast` operation
-as a means to compare the types of two references for equality. 
+We allow a large class of Haskell values to be stored in our references, 
+as long as they are instances of the `Typeable` type class. We use this 
+restriction to be able to compare the types of references for equality, 
+so as to be able to define decidable equality for references (`refEq`), 
+which we in turn use when updating the values stored in the heap.
 
 If one attempts to access a non-existent reference (for dereferencing 
 or assignment), then the corresponding co-operation is going to send a
@@ -29,9 +32,7 @@ or assignment), then the corresponding co-operation is going to send a
 -}
 module Control.SignalRunner.SignalMLState
   (
-  Ref,
-  addrOf, -- needed in `MonotonicMLState`
-  MLState(..), S(..), Heap, 
+  Ref, refEq, MLState(..), S(..), Heap, 
   alloc, (!), deref, (=:=), assign,
   mlRunner, mlInitialiser, mlFinaliserVal, mlFinaliserExc, mlFinaliserSig, mlTopLevel,
   Typeable
@@ -82,9 +83,19 @@ instance Eq (Ref a) where
 instance Show (Ref a) where
   show r = "ref. with address " ++ show (addrOf r)
 
--- | Address of a reference (exposed because we need it to implement @MonotonicMLState@).
+-- | Exposing the address of a reference (private to this module).
 addrOf :: Ref a -> Addr
 addrOf (R r) = r
+
+-- | Decidable equality on references (of possibly different types).
+--
+-- If the references are deemed to be equal, the equality test also
+-- returns a proof that their types are (propositionally) equal.
+refEq :: (Typeable a,Typeable b) => Ref a -> Ref b -> Maybe (a :~: b)
+refEq (r :: Ref a) (r' :: Ref b) =
+  if (addrOf r == addrOf r')
+  then eqT @a @b
+  else Nothing
 
 -- | Memory is a partial map from references to `Typeable` values.
 type Memory = forall a . (Typeable a) => Ref a -> Maybe a
@@ -104,12 +115,9 @@ heapSel h r = memory h r
 -- | Updating the value of a reference in the memory.
 memUpd :: (Typeable a) => Memory -> Ref a -> a -> Memory
 memUpd mem r x r' =
-  case cast x of
+  case refEq r r' of
     Nothing -> mem r'
-    Just y -> (
-      if (addrOf r == addrOf r')
-      then Just y
-      else mem r')
+    Just Refl -> Just x
 
 -- | Updatring the value of a reference in the heap.
 heapUpd :: (Typeable a) => Heap -> Ref a -> a -> Heap
