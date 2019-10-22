@@ -95,7 +95,7 @@ heapAlloc h init =
            nextAddr = S (nextAddr h) })
 
 -- | An effect for general ML-style state.
-data MLState :: * -> * where
+data MLState a where
   -- | Algebraic operation for allocating a fresh memory reference.
   Alloc  :: (Typeable a) => a -> MLState (Ref a)
   -- | Algebraic operation for dereferencing a memory reference.
