@@ -14,6 +14,15 @@
 -- to use typecasting as a means for deciding type equality.
 --
 
+{-|
+Module      : Control.Runner.MLState
+Description : Runner for general ML-style state (supporting allocation, dereferencing, and assignment)
+Copyright   : (c) Danel Ahman, 2019
+License     : MIT
+Maintainer  : danel.ahman@eesti.ee
+Stability   : experimental
+
+-}
 module Control.Runner.MLState
   (
   Ref, MLState(..), Heap,

@@ -3,14 +3,6 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 
---
--- Focussing on a given footprint of the entire ML-style state
--- using a runner. The focussing has a transactional flavour:
--- the initialisation copies the values of the given footprints
--- to the runner's state, and the finaliser copies the final
--- values for the footprint back to the ML-style state.
---
-
 {-|
 Module      : Control.Runner.MLFPState
 Description : Using a runner to locally run a footprint of general, external ML-style state 
@@ -32,21 +24,12 @@ import Control.Runner.MLState
 
 import System.IO
 
---
--- Footprint of memory is a list of references.
---
-
 -- | Footprint is a memory shape indexed vector of ML-style
 -- memory references, with the typing ensuring that types of
 -- the memory references match locations in the memory shape.
 data Footprint :: forall memsize . MemShape memsize -> * where
   FE :: Footprint ShE
   FC :: (Typeable a) => Ref a -> Footprint sh -> Footprint (ShC a sh)
-
---
--- With-footprint construct for running a program only
--- on the footprint of the whole ML-style memory.
---
 
 -- | Initialiser for running the given footprint of ML-style
 -- memory references locally using the runner `fpRunner.
