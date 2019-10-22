@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
 {-|
-Module      : Control.FPState
+Module      : Control.IntState
 Description : Runner for integer-valued global state, using effect typing to ensure that only a given footprint is accessed
 Copyright   : (c) Danel Ahman, 2019
 License     : MIT
@@ -25,7 +25,7 @@ locations/addresses are present, and thus can be accessed.
 module Control.Runner.IntState (
   Nat(..), Addr(..),
   State(..), get, put, 
-  Memory, stRunner, withNewRef, runSt
+  Memory, stRunner, withNewRef, topRunner, runSt
   ) where
 
 import Control.Runner
@@ -79,32 +79,33 @@ stCoOps (Put (AS addr) x) = performK (Put addr x)
 stRunner :: Runner '[State (S memsize)] '[State memsize] Memory
 stRunner = mkRunner stCoOps
 
--- | Derived programming construct for running user code that
--- has access to one additional (freshly generated) memory address.
+-- | A scoped allocation of a fresh memory address.
+--
+-- The first `Int`-valued argument is the initial value stored
+-- in the fresh memory address.
 withNewRef :: Int
            -> User '[State (S memsize)] a
            -> User '[State memsize] a
 withNewRef init m =
   run stRunner (return init) m (\ x _ -> return x)
 
---
--- Top-level runner in the pure context.
---
--- A bit of a temporary solution. Much better would be to
--- have Kernel '[] a isomorphic to Kernel '[State Z] a.
---
+-- | The co-operations of the runner `topRunner`.
 topCoOps :: State Z r -> Kernel '[] () r
 topCoOps (Get _) =
   error "Should not be possible to run `get` in empty state"
 topCoOps (Put _ x) =
   error "Should not be possible to run `put` in empty state"
 
+-- | Top level runner for running user code with the
+-- `State` effect in the empty external signature.
 topRunner :: Runner '[State Z] '[] ()
 topRunner = mkRunner topCoOps
 
---
--- Top-level running of empty-state computations.
---
+-- | Top-level running of user code with the `State`
+-- effect. It simply wraps `pureTopLevel` around running
+-- user code with `topRunner`. The given user code starts
+-- with no memory addresses allocated, and can then
+-- allocate new addresses using `withNewRef`.
 runSt :: User '[State Z] a -> a
 runSt m =
   pureTopLevel (
