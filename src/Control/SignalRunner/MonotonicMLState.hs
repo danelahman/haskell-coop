@@ -32,17 +32,17 @@ dereferencing, and assignment operations to the runner `mlRunner`
 
 If one attempts to perform an assignment to a reference with a value 
 that is not related to the old value of the reference by the respective 
-preorder, then we send a corresponding signal (alternatively, one could 
-instead raise an exception, so as to allow the user code to try the 
-assignment again with a different value, e.g., if we do not care about 
-leaking information about the exisiting value of the reference). 
+preorder, then we raise a corresponding exception (alternatively, one could 
+raise a (kill) signal, so as to not allow the user to re-try assingment 
+with a different value, e.g., if we were to care about not leaking  
+information about the exisiting value of the reference to user code). 
 
-Further, if we observe that the user tries assignment with a reference that has no 
-preorder assigned, we also raise a signal and kill the user code being run.
+Further, if we observe that the user tries assignment with a reference that has 
+no preorder assigned, we raise a (kill) signal and kill the user code being run.
 -}
 module Control.SignalRunner.MonotonicMLState
   (
-  MonS(..), Preorder,
+  MonE(..), MonS(..), Preorder,
   Ref, MonMemory, 
   MonMLState(..), alloc, (!), (=:=),
   monRunner, monInitialiser, monFinaliserVal, monFinaliserExc, monFinaliserSig, monTopLevel,
@@ -55,17 +55,22 @@ import qualified Control.SignalRunner.SignalMLState as ML (alloc, deref, assign)
 
 import Data.Typeable
 
+-- | Type of exceptions.
+data MonE where
+  -- | Exception raised when we observe that an assignment
+  -- to a reference is not following the associated preorder.
+  MonotonicityViolationException :: Ref a -> MonE
+
+instance Show MonE where
+  show (MonotonicityViolationException r) = "MononicityViolationException -- " ++ show r
+
 -- | Type of (kill) signals.
 data MonS where
   -- | Signal sent when we observe that a given
   -- reference has no preorder associated with it.
   MissingPreorderSignal :: Ref a -> MonS
-  -- | Signal sent when we observe that an assignment
-  -- to a reference would violate the respective preorder.
-  MononicityViolationSignal :: Ref a -> MonS
 
 instance Show MonS where
-  show (MononicityViolationSignal r) = "MononicityViolationSignal -- " ++ show r
   show (MissingPreorderSignal r) = "MissingPreorderSignal -- " ++ show r
 
 -- | Type of preorders (implicitly assumed to satisfy reflexivity and transitivity).
@@ -95,7 +100,7 @@ data MonMLState :: * -> * where
   -- | Algebraic operation for dereferencing a reference.
   MonDeref  :: (Typeable a) => Ref a -> MonMLState a
   -- | Algebraic operation for assiging a value to a reference.
-  MonAssign :: (Typeable a) => Ref a -> a -> MonMLState ()
+  MonAssign :: (Typeable a) => Ref a -> a -> MonMLState (Either () MonE)
 
 -- | Generic effect for allocating a fresh reference.
 alloc :: (Typeable a,Member MonMLState sig) => a -> Preorder a -> User sig e (Ref a)
@@ -106,8 +111,9 @@ alloc init rel = focus (performU (MonAlloc init rel))
 (!) r = focus (performU (MonDeref r))
 
 -- | Generic effect for assigning a value to a reference.
-(=:=) :: (Typeable a,Member MonMLState sig) => Ref a -> a -> User sig e ()
-(=:=) r x = focus (performU (MonAssign r x))
+(=:=) :: (Typeable a,Member MonMLState sig) => Ref a -> a -> User sig MonE ()
+(=:=) r x = do xe <- focus (performU (MonAssign r x));
+               either return (\ e -> raiseU e) xe
 
 -- | The co-operations of the runner `monRunner`.
 monCoOps :: Member MLState sig => MonMLState a -> Kernel sig Zero MonS MonMemory a
@@ -125,8 +131,8 @@ monCoOps (MonAssign r y) =
      maybe
        (kill (MissingPreorderSignal r))
        (\ rel -> if (rel x y)
-                 then (user (ML.assign r y) return impossible)
-                 else (kill (MononicityViolationSignal r)))
+                 then (user (ML.assign r y) (\ x -> return (Left x)) impossible)
+                 else (return (Right (MonotonicityViolationException r))))
        (memSel m r)
 
 -- | Runner that implements the `MonMLState` effect.
@@ -143,7 +149,7 @@ monCoOps (MonAssign r y) =
 --
 -- Further in the co-operation `MonAssign`, if the new value being
 -- assigned to a reference is not related to its existing value,
--- then a (kill) signal `MononicityViolationSignal` gets sent.
+-- then an exception `MonotonicityViolationException` gets raised.
 monRunner :: Member MLState sig => Runner '[MonMLState] sig MonS MonMemory
 monRunner = mkRunner monCoOps
 
@@ -159,10 +165,10 @@ monFinaliserVal :: a -> MonMemory -> User sig Zero a
 monFinaliserVal x _ = return x
 
 -- | Finaliser for exceptions for the runner `mlRunner`, 
--- which is vacuously defined because there are
--- no exceptions (the exceptions index is `Zero`).
-monFinaliserExc :: Zero -> MonMemory -> User sig Zero a
-monFinaliserExc e _ = impossible e
+-- which raises a Haskell runtime error to signify
+-- that an uncaught exception reached the top level.
+monFinaliserExc :: MonE -> MonMemory -> User sig Zero a
+monFinaliserExc e _ = error ("exception reached (monotonic) top level (" ++ show e ++ ")")
 
 -- | Finaliser for signals for the runner `mlRunner`, 
 -- which raises a Haskell runtime error to signify
@@ -171,7 +177,7 @@ monFinaliserSig :: MonS -> User sig Zero a
 monFinaliserSig s = error ("signal reached (monotonic) top level (" ++ show s ++ ")")
 
 -- | Top level for running user code that can use monotonic ML-style state.
-monTopLevel :: User '[MonMLState] Zero a -> a
+monTopLevel :: User '[MonMLState] MonE a -> a
 monTopLevel m =
   pureTopLevel (
     run
