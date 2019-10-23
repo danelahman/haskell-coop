@@ -142,18 +142,18 @@ data MLState :: * -> * where
 
 -- | Generic effect for allocating a fresh reference.
 alloc :: (Typeable a,Member MLState sig) => a -> User sig e (Ref a)
-alloc init = tryWithU (focus (performU (Alloc init))) return impossible
+alloc init = focus (performU (Alloc init))
 
 -- | Generic effect for dereferencing a reference.
 (!) :: (Typeable a,Member MLState sig) => Ref a -> User sig e a
-(!) r = tryWithU (focus (performU (Deref r))) return impossible
+(!) r = focus (performU (Deref r))
 
 -- | Generic effect for dereferencing a reference (synonym of @(!)@).
 deref r = (!) r -- used with qualified module names
 
 -- | Generic effect for assigning a value to a reference.
 (=:=) :: (Typeable a,Member MLState sig) => Ref a -> a -> User sig e ()
-(=:=) r x = tryWithU (focus (performU (Assign r x))) return impossible
+(=:=) r x = focus (performU (Assign r x))
 
 -- | Generic effect for assigning a value to a reference (synonym of @(=:=)@).
 assign r x = r =:= x -- used with qualified module names

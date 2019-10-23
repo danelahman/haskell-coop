@@ -99,15 +99,15 @@ data MonMLState :: * -> * where
 
 -- | Generic effect for allocating a fresh reference.
 alloc :: (Typeable a,Member MonMLState sig) => a -> Preorder a -> User sig e (Ref a)
-alloc init rel = tryWithU (focus (performU (MonAlloc init rel))) return impossible
+alloc init rel = focus (performU (MonAlloc init rel))
 
 -- | Generic effect for dereferencing a reference.
 (!) :: (Typeable a,Member MonMLState sig) => Ref a -> User sig e a
-(!) r = tryWithU (focus (performU (MonDeref r))) return impossible
+(!) r = focus (performU (MonDeref r))
 
 -- | Generic effect for assigning a value to a reference.
 (=:=) :: (Typeable a,Member MonMLState sig) => Ref a -> a -> User sig e ()
-(=:=) r x = tryWithU (focus (performU (MonAssign r x))) return impossible
+(=:=) r x = focus (performU (MonAssign r x))
 
 -- | The co-operations of the runner `monRunner`.
 monCoOps :: Member MLState sig => MonMLState a -> Kernel sig Zero MonS MonMemory a
