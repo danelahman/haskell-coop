@@ -181,20 +181,12 @@ focus m =
 -- Also observe that the exception index @e@ is left polymorphic above---it
 -- gets instantiated by the contex in which one places this operation call.
 --
-performU :: eff a -> User '[eff] e a
+performU :: Member eff sig => eff a -> User sig e a
 performU op = U (do x <- send op; return (Left x))
 
--- | Performing an algebraic operation of the effect @eff@ in user code.
-genPerformU :: Member eff sig => eff a -> User sig e a
-genPerformU op = U (do x <- send op; return (Left x))
-
 -- | Performing an algebraic operation of the effect @eff@ in kernel code.
-performK :: eff a -> Kernel '[eff] e s c a
+performK :: Member eff sig => eff a -> Kernel sig e s c a
 performK op = K (\ c -> (do x <- send op; return (Left (Left x,c))))
-
--- | Performing an algebraic operation of the effect @eff@ in kernel code.
-genPerformK :: Member eff sig => eff a -> Kernel sig e s c a
-genPerformK op = K (\ c -> (do x <- send op; return (Left (Left x,c))))
 
 -- | Raising an exception of type @e@ in user code.
 --
@@ -437,7 +429,7 @@ pairRunners (CoOps coops r) r' =
 
 -- | Runner that forwards all of its co-operations to some enveloping runner.
 fwdRunner :: Member eff sig => Runner '[eff] sig s c
-fwdRunner = CoOps genPerformK Empty
+fwdRunner = CoOps performK Empty
 
 -- | Running a single algebraic operation as a kernel computation using the given runner.
 runOp :: Runner sig sig' s c -> Union sig b -> Kernel sig' Zero s c b
