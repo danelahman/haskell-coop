@@ -3,7 +3,7 @@
 {-# LANGUAGE MonoLocalBinds #-}
 
 {-|
-Module      : IntStateTests
+Module      : CostTests
 Description : Example use cases of the runner for cost model instrumentation from `Control.Runner.Cost`
 Copyright   : (c) Danel Ahman, 2019
 License     : MIT
