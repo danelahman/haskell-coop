@@ -151,7 +151,7 @@ user (UC m) f =
 -- where each of the co-operations is a kernel computation that can perform algebraic operations
 -- given by (external) effects in the signature @sig'@ and access runtime state of type @c@.
 --
--- Given an effect @eff :: * -> *@, the corresponding co-operations are given by a
+-- Given an effect @eff :: * -> *@ in @sig@, the corresponding co-operations are given by a
 -- function of type
 --
 -- > forall b . eff b -> Kernel sig' c b

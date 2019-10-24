@@ -330,8 +330,8 @@ user (U m) f g =
 -- As a result, any exceptions have to be returned as `Either`-typed values.
 -- For example, see the discussion in the descriptions of `User` and `performU`.
 --
--- Given an effect @eff :: * -> *@, the corresponding co-operations are given by a
--- function of type
+-- Given an effect @eff :: * -> *@ in @sig@, the corresponding co-operations are
+-- given by a function of type
 --
 -- > forall b . eff b -> Kernel sig' c b
 --
