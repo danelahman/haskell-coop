@@ -18,8 +18,6 @@ import Control.Runner.FileIO hiding (withFile)
 import Control.Runner.FileIOAndMLState
 import Control.Runner.MLState hiding (mlTopLevel)
 
-import Data.Typeable
-
 test1 :: FilePath -> User '[IO,MLState] String
 test1 fn =
   do r <- alloc "";
