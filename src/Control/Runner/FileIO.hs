@@ -43,19 +43,19 @@ data FileIO a where
 
 -- | Generic effect for opening a file in a given mode.
 fOpenOS :: (Member FileIO sig) => FilePath -> IOMode -> User sig Handle
-fOpenOS fn mode = focus (performU (OpenFile fn mode))
+fOpenOS fn mode = performU (OpenFile fn mode)
 
 -- | Generic effect for closing a given file.
 fCloseOS :: (Member FileIO sig) => Handle -> User sig ()
-fCloseOS fh = focus (performU (CloseFile fh))
+fCloseOS fh = performU (CloseFile fh)
 
 -- | Generic effect for reading from a given file.
 fReadOS :: (Member FileIO sig) => Handle -> User sig String
-fReadOS fh = focus (performU (ReadFile fh))
+fReadOS fh = performU (ReadFile fh)
 
 -- | Generic effect for writing to a given file.
 fWriteOS :: (Member FileIO sig) => Handle -> String -> User sig ()
-fWriteOS fh s = focus (performU (WriteFile fh s))
+fWriteOS fh s = performU (WriteFile fh s)
 
 -- | An effect for performing reads and writes (on a file whose file
 -- handle is hidden by the user code through the use of runners).
@@ -70,11 +70,11 @@ data File a where
 
 -- | Generic effect for reading (from a file that is hidden from user code).
 fRead :: (Member File sig) => User sig String
-fRead = focus (performU Read)
+fRead = performU Read
 
 -- | Generic effect for writing (to a file that is hidden from user code).
 fWrite :: (Member File sig) => String -> User sig ()
-fWrite s = focus (performU (Write s))
+fWrite s = performU (Write s)
 
 --
 -- FIO: File-fragment of the top-level IO-container.
@@ -92,14 +92,15 @@ type FIOState = ()
 -- | The co-operations of the runner `fioRunner`.
 fioCoOps :: Member IO sig => FileIO a -> Kernel sig FIOState a
 fioCoOps (OpenFile fn mode) =
-  user (focus (performU (openFile fn mode))) return
+  performK (openFile fn mode)
 fioCoOps (CloseFile fh) =
-  user (focus (performU (hClose fh))) return
+  performK (hClose fh)
 fioCoOps (ReadFile fh) =
   -- using ByteString IO to ensure strictness of IO
-  user (focus (performU (B.hGetContents fh))) (\ s -> return (B.unpack s))
+  do s <- performK (B.hGetContents fh);
+     return (B.unpack s)
 fioCoOps (WriteFile fh s) =
-  user (focus (performU (B.hPutStr fh (B.pack s)))) return
+  performK (B.hPutStr fh (B.pack s))
 
 -- | Runner that implements the `FileIO` effect, by delegating
 -- the file IO operations to Haskell's `IO` monad operations.
@@ -122,7 +123,7 @@ fhCoOps Read =
      return s
 fhCoOps (Write s') =
   do (s,fh) <- getEnv;
-     user (focus (performU (WriteFile fh s'))) return
+     performK (WriteFile fh s')
 
 -- | Runner that implements the `File` effect, by
 -- returning the internally stored (initial) contents

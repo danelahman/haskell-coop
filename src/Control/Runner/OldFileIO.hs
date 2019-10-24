@@ -64,13 +64,14 @@ data Cleaner a where
 -- | The co-operations of the `fioRunner`.
 fioCoOps :: FileIO a -> Kernel '[IO] () a
 fioCoOps (OpenFile fn mode) =
-  user (focus (performU (openFile fn mode))) return
+  performK (openFile fn mode)
 fioCoOps (CloseFile fh) =
-  user (focus (performU (hClose fh))) return
+  performK (hClose fh)
 fioCoOps (ReadFile fh) =
-  user (focus (performU (B.hGetContents fh))) (\ s -> return (B.unpack s))
+  do s <- performK (B.hGetContents fh);
+     return (B.unpack s)
 fioCoOps (WriteFile fh s) =
-  user (focus (performU (B.hPutStr fh (B.pack s)))) return
+  performK (B.hPutStr fh (B.pack s))
 
 -- | Runner that implements the `FileIO` effect, by delegating
 -- the file IO operations to Haskell's `IO` monad operations.

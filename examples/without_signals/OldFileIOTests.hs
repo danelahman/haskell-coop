@@ -22,15 +22,15 @@ import System.IO
 
 test1 :: User '[File] ()
 test1 =
-  do s <- focus (performU Read);
+  do s <- performU Read;
      if s == "foo"
-     then (focus (performU (Write "contents was foo")))
-     else (focus (performU (Write "contents was not foo")))
+     then (performU (Write "contents was foo"))
+     else (performU (Write "contents was not foo"))
 
 writeLines :: Member File iface => [String] -> User iface ()
 writeLines [] = return ()
-writeLines (l:ls) = do focus (performU (Write l));
-                       focus (performU (Write "\n"));
+writeLines (l:ls) = do performU (Write l);
+                       performU (Write "\n");
                        writeLines ls
 
 exampleLines = ["Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
@@ -101,13 +101,13 @@ test8 =                                         -- in IO signature
         fcOwRunner
         (fioFcOwInitialiser "./out4.txt")
         (                                       -- in File signature, with FC+OW runner
-          do s <- focus (performU Read);
-             focus (performU (Write s));
-             focus (performU (Write "\n"));
-             focus (performU (Write s));
+          do s <- performU Read;
+             performU (Write s);
+             performU (Write "\n");
+             performU (Write s);
              if not (s == "foo")
-             then (do focus (performU Clean);   -- selectively empties file contents
-                      focus (performU (Write "foo"))) 
+             then (do performU Clean;   -- selectively empties file contents
+                      performU (Write "foo")) 
              else (return ())
         )
         (fioFcOwFinaliser "./out4.txt")

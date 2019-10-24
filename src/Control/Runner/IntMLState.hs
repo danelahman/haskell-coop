@@ -90,15 +90,15 @@ data IntMLState a where
 
 -- | Generic effect for allocating a fresh reference.
 alloc :: Member IntMLState sig => Int -> User sig Ref
-alloc init = focus (performU (Alloc init))
+alloc init = performU (Alloc init)
 
 -- | Generic effect for dereferencing a reference.
 (!) :: Member IntMLState sig => Ref -> User sig Int
-(!) r = focus (performU (Deref r))
+(!) r = performU (Deref r)
 
 -- | Generic effect for assigning a value to a reference.
 (=:=) :: Member IntMLState sig => Ref -> Int -> User sig ()
-(=:=) r x = focus (performU (Assign r x))
+(=:=) r x = performU (Assign r x)
 
 -- | The co-operations of the runner `intMLRunner`.
 intMLCoOps :: IntMLState a -> Kernel sig Heap a

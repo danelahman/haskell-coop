@@ -115,15 +115,15 @@ data MLState a where
 
 -- | Generic effect for allocating a fresh reference.
 alloc :: (Typeable a,Member MLState sig) => a -> User sig (Ref a)
-alloc init = focus (performU (Alloc init))
+alloc init = performU (Alloc init)
 
 -- | Generic effect for dereferencing a reference.
 (!) :: (Typeable a,Member MLState sig) => Ref a -> User sig a
-(!) r = focus (performU (Deref r))
+(!) r = performU (Deref r)
 
 -- | Generic effect for assigning a value to a reference.
 (=:=) :: (Typeable a,Member MLState sig) => Ref a -> a -> User sig ()
-(=:=) r x = focus (performU (Assign r x))
+(=:=) r x = performU (Assign r x)
 
 -- | The co-operations of the runner `mlRunner`.
 mlCoOps :: MLState a -> Kernel sig Heap a

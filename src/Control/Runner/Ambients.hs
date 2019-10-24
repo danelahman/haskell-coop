@@ -180,34 +180,34 @@ type AmbEff a = User '[Amb] a
 
 -- | Generic effect for getting the value of an ambient value.
 getVal :: (Typeable a) => AmbVal a -> AmbEff a
-getVal (AV x) = focus (performU (ApplyFun x ()))
+getVal (AV x) = performU (ApplyFun x ())
 
 -- | Generic effect for applying an ambient function to a value.
 applyFun :: (Typeable a,Typeable b) => AmbFun a b -> a -> AmbEff b
-applyFun f x = focus (performU (ApplyFun f x))
+applyFun f x = performU (ApplyFun f x)
 
 -- | Generic effect for rebinding an ambient value to a new value.
 rebindVal :: (Typeable a) => AmbVal a -> a -> AmbEff ()
-rebindVal x y = focus (performU (RebindVal x y))
+rebindVal x y = performU (RebindVal x y)
 
 -- | Generic effect for rebinding an ambient function to a new function.
 rebindFun :: (Typeable a,Typeable b)
           => AmbFun a b
           -> (a -> AmbEff b)
           -> AmbEff ()
-rebindFun f g = focus (performU (RebindFun f g))
+rebindFun f g = performU (RebindFun f g)
 
 -- | Generic effect for (the initial) binding of an ambient value.
 bindVal :: Typeable a
         => a
         -> AmbEff (AmbVal a)
-bindVal x = focus (performU (BindVal x))
+bindVal x = performU (BindVal x)
 
 -- | Generic effect for (the initial) binding of an ambient function.
 bindFun :: (Typeable a,Typeable b)
         => (a -> AmbEff b)
         -> AmbEff (AmbFun a b)
-bindFun f = focus (performU (BindFun f))
+bindFun f = performU (BindFun f)
 
 -- | Co-operations of the runner implementing ambient values and ambient functions.
 ambCoOps :: Amb a -> Kernel sig AmbHeap a

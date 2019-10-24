@@ -96,6 +96,11 @@ embedK :: Kernel sig c a -> Kernel (eff ': sig) c a
 embedK (KC k) = KC (\ c -> raise (k c))
 
 -- | Focussing on a particular effect in a larger signature.
+--
+-- This is sometimes useful when the effect @eff@ involves
+-- advanced uses of type indices, e.g., to track which
+-- references are alive in a given point in one's program,
+-- in which case the typing of `performU` can get confused.
 focus :: Member eff sig => User '[eff] a -> User sig a
 focus m =
   run fwdRunner (return ()) m (\ x () -> return x)
@@ -105,20 +110,12 @@ focus m =
 -- For example, to perform a file read in user code one writes
 --
 -- > performU (ReadFile fileHandle) :: User '[FileIO] String
-performU :: eff a -> User '[eff] a
+performU :: Member eff sig => eff a -> User sig a
 performU op = UC (send op)
 
--- | Performing an algebraic operation of the effect @eff@ in user code.
-genPerformU :: Member eff sig => eff a -> User sig a
-genPerformU op = UC (send op)
-
 -- | Performing an algebraic operation of the effect @eff@ in kernel code.
-performK :: eff a -> Kernel '[eff] c a
+performK :: Member eff sig => eff a -> Kernel sig c a
 performK op = KC (\ c -> do x <- send op; return (x,c))
-
--- | Performing an algebraic operation of the effect @eff@ in kernel code.
-genPerformK :: Member eff sig => eff a -> Kernel sig c a
-genPerformK op = KC (\ c -> do x <- send op; return (x,c))
 
 -- | Reading runtime state of type @c@ in kernel code.
 getEnv :: Kernel sig c c
@@ -242,7 +239,7 @@ pairRunners (CoOps coops r) r' =
 
 -- | Runner that forwards all of its co-operations to some enveloping runner.
 fwdRunner :: Member eff sig => Runner '[eff] sig c
-fwdRunner = CoOps genPerformK Empty
+fwdRunner = CoOps performK Empty
 
 -- | Running a single algebraic operation as a kernel computation using the given runner.
 runOp :: Runner sig sig' c -> Union sig b -> Kernel sig' c b
