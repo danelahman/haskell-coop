@@ -35,14 +35,16 @@ The examples are typechecked with `ghci`.
 
 There are two main entry points to the Haskell-Coop library:
 
-- `src/Control/Runner.hs` that implements a restricted form of effectful runners (without exceptions and signals). 
-- `src/Control/SignalRunner.hs` that implements the general form of effectful runners (with exceptions and signals).
+- [src/Control/Runner.hs](src/Control/Runner.hs) that implements a restricted form of effectful runners (without exceptions and signals). 
+- [src/Control/SignalRunner.hs](src/Control/SignalRunner.hs) that implements the general form of effectful runners (with exceptions and signals).
 
-The directories `src/Control/Runner/` and `src/Control/SignalRunner/` contain various example 
+The directories [src/Control/Runner/](src/Control/Runner/) 
+and [src/Control/SignalRunner/](src/Control/SignalRunner/) contain various example 
 runners that implement file IO, ML-style state, their combinations, ambient functions as present 
 in the [Koka](https://github.com/koka-lang/koka) language, etc.
 
-Example uses of these runners can be found in `examples/without_signals/` and `examples/with_signals/`.
+Example uses of these runners can be found in [examples/without_signals/](examples/without_signals/) 
+and [examples/with_signals/](examples/with_signals/).
 
 ## Further documentation
 
