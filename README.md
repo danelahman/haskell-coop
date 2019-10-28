@@ -6,7 +6,7 @@ This library is based on ongoing research of [Danel Ahman](https://danel.ahman.e
 and [Andrej Bauer](http://www.andrej.com). Interested readers should check out a
 recent draft [Runners in action](https://arxiv.org/abs/1910.11629) that develops
 the theoretical underpinnings, presents a core calculus for programming with runners
-that Haskell-Coop implements, and discusses various example uses of runners.
+that the Haskell-Coop library implements, and discusses various example uses of runners.
 
 For general background reading on algebraic effects and handlers, we recommend the lecture
 notes [What is algebraic about algebraic effects and handlers?](https://arxiv.org/abs/1807.05923).
