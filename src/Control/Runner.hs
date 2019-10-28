@@ -16,12 +16,12 @@ Stability   : experimental
 
 This module provides an implementation of effectful runners of algebraic effects (in a restricted form,
 without support for exceptions and signals) to run user code (modelled using the `User` monad)
-with co-operations implemented as kernel code (modelled using the `Kernel` monad). This module is
-based on ongoing research of [Danel Ahman](https://danel.ahman.ee) and [Andrej Bauer](http://www.andrej.com).
+with co-operations implemented as kernel code (modelled using the `Kernel` monad). 
 
-Until a proper publication about this research has appeared, you might want to check the
-talk [Interacting with external resources using runners (aka comodels)](https://danel.ahman.ee/talks/chocola19.pdf)
-for an overview of effectful runners and how we transform them into a programming language construct.
+This module is based on ongoing research of [Danel Ahman](https://danel.ahman.ee) and [Andrej Bauer](http://www.andrej.com).
+Interested readers should check out a recent draft [Runners in action](https://arxiv.org/abs/1910.11629) 
+that develops the theoretical underpinnings, presents a core calculus for programming with runners
+that the current module implements, and discusses various example uses of runners.
 For general background reading on algebraic effects and handlers, we recommend the lecture
 notes [What is algebraic about algebraic effects and handlers?](https://arxiv.org/abs/1807.05923). Section 4
 of these notes discusses ordinary runners of algebraic effects (also known in the literature as comodels of algebraic effects).
