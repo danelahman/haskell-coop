@@ -5,7 +5,7 @@ default: all
 all: build examples
 
 build:
-	cabal new-build --enable-documentation
+	cabal new-build --write-ghc-environment-files always --enable-documentation
 
 examples:
 	ghc -fno-code examples/without_signals/*.hs
